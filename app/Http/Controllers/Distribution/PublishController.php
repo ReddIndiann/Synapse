@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\DistributionChannel;
 use App\Models\MediaAsset;
 use App\Models\PublishJob;
+use App\Jobs\ProcessPublishJob;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -45,13 +47,47 @@ class PublishController extends Controller
 
         $status = ! empty($validated['scheduled_at']) ? 'scheduled' : 'pending';
 
-        PublishJob::create([
+        $job = PublishJob::create([
             ...$validated,
             'user_id' => auth()->id(),
             'status' => $status,
         ]);
 
-        return redirect()->route('distribution.publish.index')->with('status', 'Publish job queued. Platform integration comes in Phase 4.');
+        // Dispatch background queue worker if immediate
+        if ($status === 'pending') {
+            ProcessPublishJob::dispatch($job);
+            return redirect()->route('distribution.publish.monitor', $job)->with('status', 'Publish job started.');
+        }
+
+        return redirect()->route('distribution.publish.index')->with('status', 'Publish job scheduled.');
+    }
+
+    /**
+     * Real-time monitoring UI.
+     */
+    public function monitor(PublishJob $publish): View
+    {
+        abort_unless($publish->user_id === auth()->id(), 403);
+        $publish->load(['mediaAsset', 'distributionChannel']);
+        
+        return view('distribution.publish.monitor', [
+            'job' => $publish,
+        ]);
+    }
+
+    /**
+     * JSON Endpoint for AJAX Polling.
+     */
+    public function statusJson(PublishJob $publish): JsonResponse
+    {
+        abort_unless($publish->user_id === auth()->id(), 403);
+        
+        return response()->json([
+            'status' => $publish->status,
+            'logs' => $publish->logs ?: [],
+            'published_url' => $publish->published_url,
+            'progress' => $this->calculateProgress($publish->status, $publish->logs),
+        ]);
     }
 
     public function destroy(PublishJob $publish): RedirectResponse
@@ -60,5 +96,26 @@ class PublishController extends Controller
         $publish->delete();
 
         return redirect()->route('distribution.publish.index')->with('status', 'Publish job removed.');
+    }
+
+    /**
+     * Helper to compute progress bar percentage.
+     */
+    private function calculateProgress(string $status, ?array $logs): int
+    {
+        if ($status === 'published') return 100;
+        if ($status === 'failed') return 100;
+        if ($status === 'pending') return 10;
+        
+        if ($status === 'processing') {
+            if (!$logs) return 20;
+            $count = count($logs);
+            if ($count <= 2) return 25;
+            if ($count <= 4) return 50;
+            if ($count <= 6) return 75;
+            return 90;
+        }
+
+        return 0;
     }
 }

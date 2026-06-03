@@ -27,6 +27,8 @@ Route::middleware('auth')->group(function () {
     Route::prefix('assistant')->name('assistant.')->group(function () {
         Route::get('/chat', [AssistantController::class, 'index'])->name('chat');
         Route::post('/chat', [AssistantController::class, 'store'])->name('chat.store');
+        Route::post('/chat/clear', [AssistantController::class, 'clearChat'])->name('chat.clear');
+        Route::post('/chat/resolve/{message}', [AssistantController::class, 'resolveConflict'])->name('chat.resolve');
         Route::resource('tasks', TaskController::class)->except('show');
     });
 
@@ -41,6 +43,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/publish', [PublishController::class, 'index'])->name('publish.index');
         Route::get('/publish/create', [PublishController::class, 'create'])->name('publish.create');
         Route::post('/publish', [PublishController::class, 'store'])->name('publish.store');
+        Route::get('/publish/{publish}/monitor', [PublishController::class, 'monitor'])->name('publish.monitor');
+        Route::get('/publish/{publish}/status', [PublishController::class, 'statusJson'])->name('publish.status');
         Route::delete('/publish/{publish}', [PublishController::class, 'destroy'])->name('publish.destroy');
     });
 });

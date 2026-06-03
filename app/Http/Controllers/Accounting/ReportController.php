@@ -5,27 +5,52 @@ namespace App\Http\Controllers\Accounting;
 use App\Http\Controllers\Controller;
 use App\Models\Budget;
 use App\Models\Transaction;
+use App\Services\AccountingLedgerService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class ReportController extends Controller
 {
+    protected $ledgerService;
+
+    public function __construct(AccountingLedgerService $ledgerService)
+    {
+        $this->ledgerService = $ledgerService;
+    }
+
     public function index(): View
     {
         $userId = auth()->id();
 
-        $income = Transaction::query()->where('user_id', $userId)->where('type', 'income')->sum('amount');
-        $expense = Transaction::query()->where('user_id', $userId)->where('type', 'expense')->sum('amount');
+        // 1. Double Entry Ledger Reports
+        $trialBalance = $this->ledgerService->getTrialBalance($userId);
+        $profitAndLoss = $this->ledgerService->getProfitAndLoss($userId);
+        $balanceSheet = $this->ledgerService->getBalanceSheet($userId);
 
+        // 2. Budget summaries
+        $budgets = Budget::query()->where('user_id', $userId)->latest()->limit(5)->get();
+
+        // 3. Fallbacks and aggregations for cards
+        $income = $profitAndLoss['total_revenue'];
+        $expense = $profitAndLoss['total_expense'];
+        $netPosition = $profitAndLoss['net_income'];
+        
         $byCategory = Transaction::query()
             ->where('user_id', $userId)
-            ->select('category', 'type', DB::raw('SUM(amount) as total'))
+            ->select('category', 'type', DB::raw('SUM(amount * exchange_rate) as total'))
             ->groupBy('category', 'type')
             ->orderByDesc('total')
             ->get();
 
-        $budgets = Budget::query()->where('user_id', $userId)->latest()->limit(5)->get();
-
-        return view('accounting.reports.index', compact('income', 'expense', 'byCategory', 'budgets'));
+        return view('accounting.reports.index', compact(
+            'income',
+            'expense',
+            'netPosition',
+            'byCategory',
+            'budgets',
+            'trialBalance',
+            'profitAndLoss',
+            'balanceSheet'
+        ));
     }
 }

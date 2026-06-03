@@ -4,12 +4,20 @@ namespace App\Http\Controllers\Accounting;
 
 use App\Http\Controllers\Controller;
 use App\Models\Transaction;
+use App\Services\AccountingLedgerService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class TransactionController extends Controller
 {
+    protected $ledgerService;
+
+    public function __construct(AccountingLedgerService $ledgerService)
+    {
+        $this->ledgerService = $ledgerService;
+    }
+
     public function index(): View
     {
         $transactions = Transaction::query()
@@ -40,9 +48,17 @@ class TransactionController extends Controller
             'description' => ['nullable', 'string', 'max:255'],
             'occurred_at' => ['required', 'date'],
             'reference' => ['nullable', 'string', 'max:100'],
+            'payment_method' => ['required', 'string', 'in:Cash,Bank,Mobile Money'],
+            'exchange_rate' => ['required', 'numeric', 'min:0.000001'],
         ]);
 
-        Transaction::create([...$validated, 'user_id' => auth()->id()]);
+        $transaction = Transaction::create([
+            ...$validated,
+            'user_id' => auth()->id()
+        ]);
+
+        // Sync with double entry ledger
+        $this->ledgerService->recordTransaction($transaction);
 
         return redirect()->route('accounting.transactions.index')->with('status', 'Transaction recorded.');
     }
@@ -69,9 +85,14 @@ class TransactionController extends Controller
             'description' => ['nullable', 'string', 'max:255'],
             'occurred_at' => ['required', 'date'],
             'reference' => ['nullable', 'string', 'max:100'],
+            'payment_method' => ['required', 'string', 'in:Cash,Bank,Mobile Money'],
+            'exchange_rate' => ['required', 'numeric', 'min:0.000001'],
         ]);
 
         $transaction->update($validated);
+
+        // Sync with double entry ledger
+        $this->ledgerService->recordTransaction($transaction);
 
         return redirect()->route('accounting.transactions.index')->with('status', 'Transaction updated.');
     }
@@ -79,6 +100,10 @@ class TransactionController extends Controller
     public function destroy(Transaction $transaction): RedirectResponse
     {
         $this->authorizeTransaction($transaction);
+
+        // Delete ledger records first
+        $this->ledgerService->removeTransaction($transaction);
+        
         $transaction->delete();
 
         return redirect()->route('accounting.transactions.index')->with('status', 'Transaction deleted.');
