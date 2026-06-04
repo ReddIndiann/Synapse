@@ -7,23 +7,32 @@
 
         <title>{{ config('app.name', 'Synapse') }}</title>
 
+        <!-- Theme Switcher Initializer to block light flashes -->
+        <script>
+            if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        </script>
+
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,650,800&display=swap" rel="stylesheet" />
+        <link href="https://fonts.bunny.net/css?family=figtree:400,500,650,850&display=swap" rel="stylesheet" />
 
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
-    <body x-data="{ sidebarOpen: false }" class="font-sans antialiased text-slate-800 bg-slate-50/50">
+    <body x-data="{ sidebarOpen: false }" class="font-sans antialiased text-slate-800 dark:text-slate-200 transition-colors duration-300">
         <div class="min-h-screen flex flex-col">
-            <!-- Sidebar (Includes desktop and mobile drawer versions) -->
+            <!-- Sidebar -->
             @include('layouts.navigation')
 
             <!-- Main Layout Viewport -->
             <div class="lg:pl-64 flex flex-col flex-1 min-h-screen">
                 <!-- Mobile top navigation bar -->
-                <header class="flex lg:hidden items-center justify-between h-16 bg-white/80 backdrop-blur-md border-b border-slate-200/80 px-5 sticky top-0 z-30">
-                    <button @click="sidebarOpen = true" class="p-1.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 focus:outline-none">
+                <header class="flex lg:hidden items-center justify-between h-16 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 px-5 sticky top-0 z-30 transition-colors duration-300">
+                    <button @click="sidebarOpen = true" class="p-1.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 focus:outline-none">
                         <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
                         </svg>
@@ -33,26 +42,47 @@
                         <div class="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold shadow-sm">
                             S
                         </div>
-                        <span class="font-semibold text-slate-900 tracking-tight text-sm">Synapse</span>
+                        <span class="font-bold text-slate-900 dark:text-white tracking-tight text-sm">Synapse</span>
                     </a>
 
-                    <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold shadow-sm">
-                        {{ substr(Auth::user()->name, 0, 2) }}
-                    </div>
+                    <!-- Mobile Theme Toggler Button -->
+                    <button onclick="toggleTheme()" class="p-1.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 focus:outline-none">
+                        <!-- Sun Icon (shows in dark mode) -->
+                        <svg class="w-5 h-5 hidden dark:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M12 7a5 5 0 100 10 5 5 0 000-10z" />
+                        </svg>
+                        <!-- Moon Icon (shows in light mode) -->
+                        <svg class="w-5 h-5 block dark:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                        </svg>
+                    </button>
                 </header>
 
-                <!-- Page Header (Dynamic Breadcrumb or Navigation) -->
+                <!-- Page Header -->
                 @isset($header)
-                    <div class="bg-white/40 border-b border-slate-100 py-5 px-5 sm:px-8 lg:px-10 backdrop-blur-md">
+                    <div class="bg-white/40 dark:bg-slate-900/10 border-b border-slate-100 dark:border-slate-800/60 py-5 px-5 sm:px-8 lg:px-10 backdrop-blur-md transition-colors duration-300">
                         {{ $header }}
                     </div>
                 @endisset
 
                 <!-- Main Content Area -->
-                <main class="flex-1 px-5 sm:px-8 lg:px-10">
+                <main class="flex-1 px-5 sm:px-8 lg:px-10 py-6">
                     {{ $slot }}
                 </main>
             </div>
         </div>
+
+        <!-- Global Theme Toggle Script -->
+        <script>
+            function toggleTheme() {
+                if (document.documentElement.classList.contains('dark')) {
+                    document.documentElement.classList.remove('dark');
+                    localStorage.theme = 'light';
+                } else {
+                    document.documentElement.classList.add('dark');
+                    localStorage.theme = 'dark';
+                }
+            }
+        </script>
     </body>
 </html>

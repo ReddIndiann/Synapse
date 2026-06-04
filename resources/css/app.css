@@ -4,19 +4,26 @@
 
 @layer base {
     :root {
-        --bg: 248 250 252;
-        --surface: 255 255 255;
-        --text: 15 23 42;
-        --muted: 100 116 139;
+        --bg: #f8fafc;
+        --surface: #ffffff;
+        --text: #0f172a;
+        --border: #e2e8f0;
         --primary: 99 102 241;
         --primary-strong: 79 70 229;
         --ring: 129 140 248;
     }
 
+    .dark {
+        --bg: #0b0f19;
+        --surface: #111827;
+        --text: #f8fafc;
+        --border: #1f2937;
+    }
+
     body {
-        @apply antialiased;
-        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-        color: rgb(var(--text));
+        @apply antialiased transition-colors duration-300;
+        background-color: var(--bg);
+        color: var(--text);
         font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     }
 
@@ -32,6 +39,9 @@
         background: rgb(203 213 225);
         border-radius: 9999px;
     }
+    .dark ::-webkit-scrollbar-thumb {
+        background: rgb(55 65 81);
+    }
     ::-webkit-scrollbar-thumb:hover {
         background: rgb(148 163 184);
     }
@@ -39,7 +49,10 @@
 
 @layer components {
     .ui-surface {
-        @apply bg-white/70 backdrop-blur-md border border-white shadow-[0_4px_20px_-4px_rgba(148,163,184,0.12)] rounded-3xl transition-all duration-300;
+        @apply transition-all duration-300;
+        background-color: var(--surface);
+        border: 1px solid var(--border);
+        color: var(--text);
     }
 
     .ui-page-wrap {
@@ -51,36 +64,44 @@
     }
 
     .ui-card {
-        @apply ui-surface p-6 hover:shadow-[0_8px_30px_-6px_rgba(99,102,241,0.08)] hover:-translate-y-0.5;
+        @apply ui-surface p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.01)] hover:shadow-[0_12px_40px_rgba(99,102,241,0.05)] hover:-translate-y-0.5;
     }
 
     .ui-title {
-        @apply text-slate-900 font-extrabold tracking-tight;
+        @apply font-extrabold tracking-tight;
+        color: var(--text);
     }
 
     .ui-table {
-        @apply min-w-full text-sm text-slate-600;
+        @apply min-w-full text-sm text-slate-600 dark:text-slate-300;
     }
 
     .ui-table thead tr {
-        @apply border-b border-slate-200/80 text-slate-500 font-semibold bg-slate-50/50;
+        @apply border-b font-semibold bg-slate-50/50 dark:bg-slate-900/30;
+        border-color: var(--border);
+        color: var(--text);
     }
 
     .ui-table tbody tr {
-        @apply border-b border-slate-100 hover:bg-slate-50/30 transition-colors;
+        @apply border-b hover:bg-slate-50/30 dark:hover:bg-slate-800/10 transition-colors;
+        border-color: var(--border);
     }
 
     /* Modern inputs */
     .auth-input {
-        @apply w-full h-11 px-4 border border-slate-200/80 bg-white/50 text-slate-800 rounded-xl shadow-sm
-               placeholder:text-slate-400/80 transition-all duration-200
-               focus:bg-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 focus:outline-none;
+        @apply w-full h-11 px-4 border text-slate-800 dark:text-slate-100 rounded-xl shadow-sm
+               placeholder:text-slate-400/80 transition-all duration-200;
+        border-color: var(--border);
+        background-color: var(--surface);
+    }
+    .auth-input:focus {
+        @apply bg-white dark:bg-slate-900 border-indigo-500 ring-4 ring-indigo-500/10 outline-none;
     }
 
     /* Auth panel */
     .auth-shell {
-        @apply min-h-screen relative overflow-hidden;
-        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        @apply min-h-screen relative overflow-hidden transition-colors duration-300;
+        background-color: var(--bg);
     }
 
     .auth-panel-brand {
@@ -100,7 +121,8 @@
     }
 
     .auth-card {
-        @apply bg-white/80 backdrop-blur-md rounded-[32px] shadow-2xl shadow-slate-200/50 border border-white/60 p-8 sm:p-10;
+        @apply backdrop-blur-md rounded-[32px] shadow-2xl shadow-slate-200/50 dark:shadow-black/25 border border-white/60 dark:border-slate-800/60 p-8 sm:p-10;
+        background-color: var(--surface);
     }
 
     .auth-submit {

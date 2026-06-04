@@ -16,7 +16,8 @@ class AccountingLedgerService
     public function recordTransaction(Transaction $transaction): JournalEntry
     {
         return DB::transaction(function () use ($transaction) {
-            $baseAmount = $transaction->amount * $transaction->exchange_rate;
+            $exchangeRate = floatval($transaction->exchange_rate ?: 1.0);
+            $baseAmount = $transaction->amount * $exchangeRate;
 
             // 1. Create or Update Journal Entry
             $journalEntry = JournalEntry::updateOrCreate(
@@ -29,7 +30,7 @@ class AccountingLedgerService
                     'occurred_at' => $transaction->occurred_at,
                     'currency' => $transaction->currency,
                     'amount' => $transaction->amount,
-                    'exchange_rate' => $transaction->exchange_rate,
+                    'exchange_rate' => $exchangeRate,
                     'base_currency' => 'GHS',
                     'base_amount' => $baseAmount,
                 ]
@@ -129,9 +130,11 @@ class AccountingLedgerService
         }
 
         if (!$matchedCode) {
-            // Generate a random code in type range
+            // Generate an unused random code in type range
             $prefix = $type === 'asset' ? '1' : ($type === 'liability' ? '2' : ($type === 'equity' ? '3' : ($type === 'revenue' ? '4' : '5')));
-            $matchedCode = $prefix . str_pad(rand(50, 999), 3, '0', STR_PAD_LEFT);
+            do {
+                $matchedCode = $prefix . str_pad(rand(50, 999), 3, '0', STR_PAD_LEFT);
+            } while (LedgerAccount::where('user_id', $userId)->where('code', $matchedCode)->exists());
         }
 
         return LedgerAccount::firstOrCreate(
