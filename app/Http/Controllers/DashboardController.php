@@ -15,6 +15,9 @@ class DashboardController extends Controller
     {
         $userId = auth()->id();
 
+        // Check for task deadline warnings
+        $this->checkUpcomingTasks();
+
         $openTasks = Task::query()->where('user_id', $userId)->whereNotIn('status', ['completed', 'cancelled'])->count();
         $income = Transaction::query()->where('user_id', $userId)->where('type', 'income')->sum('amount');
         $expense = Transaction::query()->where('user_id', $userId)->where('type', 'expense')->sum('amount');
@@ -35,5 +38,29 @@ class DashboardController extends Controller
             'recentTasks',
             'recentTransactions',
         ));
+    }
+
+    private function checkUpcomingTasks(): void
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return;
+        }
+
+        $upcomingTasks = Task::where('user_id', $user->id)
+            ->whereNotIn('status', ['completed', 'cancelled'])
+            ->whereBetween('due_at', [now(), now()->addHours(24)])
+            ->get();
+
+        foreach ($upcomingTasks as $task) {
+            $notified = $user->notifications()
+                ->where('type', 'App\Notifications\TaskUpcomingNotification')
+                ->where('data->task_id', $task->id)
+                ->exists();
+
+            if (!$notified) {
+                $user->notify(new \App\Notifications\TaskUpcomingNotification($task));
+            }
+        }
     }
 }

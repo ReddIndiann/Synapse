@@ -60,6 +60,9 @@ class TransactionController extends Controller
         // Sync with double entry ledger
         $this->ledgerService->recordTransaction($transaction);
 
+        // Check for budget breaches
+        $this->checkBudgetBreached($transaction);
+
         return redirect()->route('accounting.transactions.index')->with('status', 'Transaction recorded.');
     }
 
@@ -94,6 +97,9 @@ class TransactionController extends Controller
         // Sync with double entry ledger
         $this->ledgerService->recordTransaction($transaction);
 
+        // Check for budget breaches
+        $this->checkBudgetBreached($transaction);
+
         return redirect()->route('accounting.transactions.index')->with('status', 'Transaction updated.');
     }
 
@@ -112,5 +118,31 @@ class TransactionController extends Controller
     private function authorizeTransaction(Transaction $transaction): void
     {
         abort_unless($transaction->user_id === auth()->id(), 403);
+    }
+
+    private function checkBudgetBreached(Transaction $transaction): void
+    {
+        if ($transaction->type !== 'expense') {
+            return;
+        }
+
+        $budget = \App\Models\Budget::where('user_id', $transaction->user_id)
+            ->where('category', $transaction->category)
+            ->first();
+
+        if ($budget) {
+            $occurredAt = \Illuminate\Support\Carbon::parse($transaction->occurred_at);
+            
+            $totalSpent = Transaction::where('user_id', $transaction->user_id)
+                ->where('category', $transaction->category)
+                ->where('type', 'expense')
+                ->whereMonth('occurred_at', $occurredAt->month)
+                ->whereYear('occurred_at', $occurredAt->year)
+                ->sum('amount');
+
+            if ($totalSpent > $budget->amount) {
+                $transaction->user->notify(new \App\Notifications\BudgetBreachedNotification($budget, $totalSpent));
+            }
+        }
     }
 }
