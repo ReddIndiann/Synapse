@@ -450,3 +450,53 @@
     background-color: var(--bg3) !important;
 }
 
+/* SweetAlert2 Button Overrides */
+.swal-confirm-btn {
+    background-color: var(--pur) !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    font-size: 0.75rem !important;
+    padding: 0.625rem 1.25rem !important;
+    border-radius: 0.75rem !important;
+    border: 1px solid var(--pur) !important;
+    transition: all 0.2s ease-in-out !important;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+    margin-right: 0.5rem !important;
+}
+.swal-confirm-btn:hover {
+    opacity: 0.9 !important;
+}
+
+.swal-confirm-btn-danger {
+    background-color: #e11d48 !important; /* rose-600 */
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    font-size: 0.75rem !important;
+    padding: 0.625rem 1.25rem !important;
+    border-radius: 0.75rem !important;
+    border: 1px solid #e11d48 !important;
+    transition: all 0.2s ease-in-out !important;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+    margin-right: 0.5rem !important;
+}
+.swal-confirm-btn-danger:hover {
+    background-color: #be123c !important; /* rose-700 */
+    border-color: #be123c !important;
+}
+
+.swal-cancel-btn {
+    background-color: var(--bg2) !important;
+    color: var(--text) !important;
+    font-weight: 700 !important;
+    font-size: 0.75rem !important;
+    padding: 0.625rem 1.25rem !important;
+    border-radius: 0.75rem !important;
+    border: 1px solid var(--border) !important;
+    transition: all 0.2s ease-in-out !important;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+}
+.swal-cancel-btn:hover {
+    background-color: var(--bg3) !important;
+    border-color: var(--border) !important;
+}
+

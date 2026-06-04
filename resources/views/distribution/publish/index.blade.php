@@ -25,7 +25,7 @@
                             <x-ui.button :href="route('distribution.publish.monitor', $job)" variant="link" size="sm" class="!text-indigo-600">Monitor</x-ui.button>
                         @endif
                         <form method="POST" action="{{ route('distribution.publish.destroy', $job) }}" class="inline">@csrf @method('DELETE')
-                            <x-ui.button type="submit" variant="link" size="sm" class="!text-red-600" onclick="return confirm('Remove from queue?')">Remove</x-ui.button>
+                            <x-ui.button type="submit" variant="link" size="sm" class="!text-red-600" data-confirm="Remove from queue?">Remove</x-ui.button>
                         </form>
                     </td>
                 </tr>

@@ -272,7 +272,7 @@
                                     <span class="text-[var(--border)]">|</span>
                                     <form method="POST" :action="'/assistant/tasks/' + task.id" class="inline">
                                         @csrf @method('DELETE')
-                                        <x-ui.button type="submit" variant="link" size="sm" class="!text-rose-600 dark:!text-rose-400" onclick="return confirm('Delete task?')">Delete</x-ui.button>
+                                        <x-ui.button type="submit" variant="link" size="sm" class="!text-rose-600 dark:!text-rose-400" data-confirm="Delete task?">Delete</x-ui.button>
                                     </form>
                                 </div>
                             </td>

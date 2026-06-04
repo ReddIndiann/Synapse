@@ -1,6 +1,6 @@
 <x-ui.page title="AI Assistant" description="Natural-language workspace — Schedule tasks, log transactions, and queue platform distribution." maxWidth="5xl">
     <x-slot name="actions">
-        <form method="POST" action="{{ route('assistant.chat.clear') }}" onsubmit="return confirm('Clear chat history?')">
+        <form method="POST" action="{{ route('assistant.chat.clear') }}" data-confirm="Clear chat history?">
             @csrf
             <x-ui.button type="submit" variant="danger" size="sm">Clear Chat</x-ui.button>
         </form>

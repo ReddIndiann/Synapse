@@ -39,7 +39,7 @@
                             <span class="text-[var(--border)]">|</span>
                             <form method="POST" action="{{ route('accounting.budgets.destroy', $budget) }}" class="inline">
                                 @csrf @method('DELETE')
-                                <x-ui.button type="submit" variant="link" size="sm" class="!text-rose-600 dark:!text-rose-400" onclick="return confirm('Delete budget?')">Delete</x-ui.button>
+                                <x-ui.button type="submit" variant="link" size="sm" class="!text-rose-600 dark:!text-rose-400" data-confirm="Delete budget?">Delete</x-ui.button>
                             </form>
                         </div>
                     </td>

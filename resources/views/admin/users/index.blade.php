@@ -32,7 +32,7 @@
                             <form method="POST" action="{{ route('admin.users.destroy', $user) }}">
                                 @csrf
                                 @method('DELETE')
-                                <x-ui.button type="submit" variant="link" size="sm" class="!text-red-600 hover:!text-red-800" onclick="return confirm('Delete this user?')">Delete</x-ui.button>
+                                <x-ui.button type="submit" variant="link" size="sm" class="!text-red-600 hover:!text-red-800" data-confirm="Delete this user?">Delete</x-ui.button>
                             </form>
                         </div>
                     </td>

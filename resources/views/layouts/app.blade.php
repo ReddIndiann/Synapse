@@ -28,7 +28,6 @@
         <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
         <script>
             window.alert = function(message) {
-                const isDark = document.documentElement.classList.contains('dark');
                 const msgLower = message.toLowerCase();
                 let icon = 'info';
                 
@@ -41,11 +40,11 @@
                 Swal.fire({
                     text: message,
                     icon: icon,
-                    background: isDark ? '#12121f' : '#ffffff',
-                    color: isDark ? '#f3f4f6' : '#1f2937',
+                    background: 'var(--surface)',
+                    color: 'var(--text)',
                     customClass: {
                         popup: 'border border-[var(--border)] rounded-2xl shadow-2xl font-sans',
-                        confirmButton: 'px-5 py-2.5 text-xs font-bold rounded-xl bg-[var(--pur)] text-white hover:opacity-90 transition-opacity focus:outline-none'
+                        confirmButton: 'swal-confirm-btn'
                     },
                     buttonsStyling: false
                 });
@@ -275,7 +274,24 @@
 
                 async triggerCancelTask() {
                     if (!this.activeAlert.id) return;
-                    if (!confirm(`Cancel task: "${this.activeAlert.title}"?`)) return;
+                    
+                    const result = await Swal.fire({
+                        text: `Cancel task: "${this.activeAlert.title}"?`,
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonText: 'Yes, cancel it',
+                        cancelButtonText: 'No',
+                        background: 'var(--surface)',
+                        color: 'var(--text)',
+                        customClass: {
+                            popup: 'border border-[var(--border)] rounded-2xl shadow-2xl font-sans',
+                            confirmButton: 'swal-confirm-btn-danger',
+                            cancelButton: 'swal-cancel-btn'
+                        },
+                        buttonsStyling: false
+                    });
+
+                    if (!result.isConfirmed) return;
 
                     try {
                         const response = await fetch(`/assistant/tasks/${this.activeAlert.id}/cancel`, {
@@ -330,7 +346,7 @@
         }
         </script>
 
-        <!-- Global Theme Toggle Script -->
+        <!-- Global Theme Toggle Script & SweetAlert2 Confirm Interceptors -->
         <script>
             function toggleTheme() {
                 if (document.documentElement.classList.contains('dark')) {
@@ -342,6 +358,91 @@
                 }
                 window.dispatchEvent(new Event('theme-changed'));
             }
+
+            // Centralized SweetAlert confirmation helper
+            function showConfirmSwal(message, onConfirm) {
+                const msgLower = message.toLowerCase();
+                const isDestructive = msgLower.includes('delete') || msgLower.includes('clear') || msgLower.includes('remove') || msgLower.includes('cancel');
+                
+                const confirmBtnClass = isDestructive ? 'swal-confirm-btn-danger' : 'swal-confirm-btn';
+
+                Swal.fire({
+                    text: message,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, proceed',
+                    cancelButtonText: 'Cancel',
+                    background: 'var(--surface)',
+                    color: 'var(--text)',
+                    customClass: {
+                        popup: 'border border-[var(--border)] rounded-2xl shadow-2xl font-sans',
+                        confirmButton: confirmBtnClass,
+                        cancelButton: 'swal-cancel-btn'
+                    },
+                    buttonsStyling: false
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        onConfirm();
+                    }
+                });
+            }
+
+            // 1. Intercept click events in the capturing phase to override all data-confirm clicks
+            document.addEventListener('click', function(event) {
+                const target = event.target.closest('[data-confirm]');
+                if (!target) return;
+
+                const form = target.closest('form');
+                
+                // If the form or target is already confirmed, let the click proceed naturally
+                if (form && form.dataset.confirmed === 'true') {
+                    return;
+                }
+                if (target.dataset.confirmed === 'true') {
+                    return;
+                }
+
+                // Stop the native action immediately
+                event.preventDefault();
+                event.stopPropagation();
+
+                const message = target.getAttribute('data-confirm');
+                showConfirmSwal(message, function() {
+                    if (form) {
+                        form.dataset.confirmed = 'true';
+                        if (typeof form.requestSubmit === 'function') {
+                            form.requestSubmit(target);
+                        } else {
+                            form.submit();
+                        }
+                    } else if (target.tagName === 'A') {
+                        target.dataset.confirmed = 'true';
+                        window.location.href = target.getAttribute('href');
+                    } else {
+                        target.dataset.confirmed = 'true';
+                        target.click();
+                    }
+                });
+            }, true);
+
+            // 2. Intercept submit events on forms that have a data-confirm attribute (e.g. keypress/enter submits)
+            document.addEventListener('submit', function(event) {
+                const form = event.target;
+                const confirmMsg = form.getAttribute('data-confirm');
+                if (!confirmMsg) return;
+
+                if (form.dataset.confirmed === 'true') {
+                    return;
+                }
+
+                event.preventDefault();
+                event.stopPropagation();
+
+                showConfirmSwal(confirmMsg, function() {
+                    form.dataset.confirmed = 'true';
+                    form.submit();
+                });
+            });
         </script>
     </body>
 </html>
