@@ -23,6 +23,34 @@
 
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
+
+        <!-- SweetAlert2 library and global decorator -->
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+        <script>
+            window.alert = function(message) {
+                const isDark = document.documentElement.classList.contains('dark');
+                const msgLower = message.toLowerCase();
+                let icon = 'info';
+                
+                if (msgLower.includes('failed') || msgLower.includes('error')) {
+                    icon = 'error';
+                } else if (msgLower.includes('success') || msgLower.includes('rescheduled') || msgLower.includes('cancelled') || msgLower.includes('recorded') || msgLower.includes('updated') || msgLower.includes('deleted') || msgLower.includes('created')) {
+                    icon = 'success';
+                }
+
+                Swal.fire({
+                    text: message,
+                    icon: icon,
+                    background: isDark ? '#12121f' : '#ffffff',
+                    color: isDark ? '#f3f4f6' : '#1f2937',
+                    customClass: {
+                        popup: 'border border-[var(--border)] rounded-2xl shadow-2xl font-sans',
+                        confirmButton: 'px-5 py-2.5 text-xs font-bold rounded-xl bg-[var(--pur)] text-white hover:opacity-90 transition-opacity focus:outline-none'
+                    },
+                    buttonsStyling: false
+                });
+            };
+        </script>
     </head>
     <body x-data="{ sidebarOpen: false }" class="font-sans antialiased text-[var(--text)] transition-colors duration-300 overflow-x-hidden min-h-screen relative">
         <div class="aur aur-a top-[-200px] left-[-200px]"></div>
@@ -88,6 +116,219 @@
                 </svg>
             </button>
         </div>
+
+        <!-- Global Task Alert Modal (Alpine.js) -->
+        <div x-data="taskAlertManager()" x-show="open" class="fixed inset-0 z-50 flex items-center justify-center p-4" style="display: none;" x-cloak>
+            <!-- Backdrop -->
+            <div class="fixed inset-0 bg-slate-955/70 backdrop-blur-sm" @click="closeModal"></div>
+
+            <!-- Modal Content Card -->
+            <div class="bg-[var(--bg2)] border border-[var(--border)] rounded-2xl w-full max-w-md shadow-2xl relative z-50 overflow-hidden transform transition-all p-6 flex flex-col gap-4">
+                
+                <!-- Header with alert icon -->
+                <div class="flex items-center gap-3 border-b border-[var(--border)] pb-3">
+                    <div class="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20 flex items-center justify-center animate-pulse shrink-0">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-sm text-[var(--text)]">Task Deadline Alert!</h3>
+                        <p class="text-[10px] text-[var(--text-muted)] font-medium">Task is approaching its scheduled deadline</p>
+                    </div>
+                </div>
+
+                <!-- Body details -->
+                <div class="space-y-3 py-1">
+                    <div class="bg-[var(--surface)] border border-[var(--border)] p-4 rounded-xl flex flex-col gap-2">
+                        <span class="text-[9px] font-extrabold uppercase tracking-widest text-rose-400" x-text="'Due in ' + activeAlert.minutes_remaining + ' minutes!'"></span>
+                        <h4 class="font-bold text-sm text-[var(--text)]" x-text="activeAlert.title"></h4>
+                        <span class="text-[10px] text-[var(--text-secondary)] font-semibold" x-text="'Deadline: ' + formatDate(activeAlert.due_at)"></span>
+                    </div>
+
+                    <!-- Reschedule Input Picker -->
+                    <div x-show="showRescheduleInput" class="space-y-2 mt-2 pt-2 border-t border-[var(--border)]/40" style="display: none;">
+                        <label class="block text-[9px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Select Custom Date & Time</label>
+                        <div class="flex gap-2">
+                            <input type="datetime-local" x-model="customDueAt" class="auth-input flex-1 !py-1.5 !text-xs" :min="getMinDateTime()">
+                            <button @click="submitReschedule" class="px-4 py-1.5 text-xs font-bold rounded-xl bg-[var(--pur)] text-white hover:opacity-90 transition-opacity">
+                                Confirm
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Button Control Grid -->
+                <div class="grid grid-cols-3 gap-2.5 pt-1.5">
+                    <!-- Reschedule -->
+                    <button @click="showRescheduleInput = !showRescheduleInput" class="px-3 py-2.5 text-[10px] font-bold rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--text)] hover:bg-[var(--bg3)]/50 hover:text-[var(--pur)] transition-colors focus:outline-none flex flex-col items-center justify-center gap-1.5">
+                        <svg class="w-4 h-4 shrink-0 text-[var(--text-secondary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                        <span>Reschedule</span>
+                    </button>
+
+                    <!-- Auto-Reschedule -->
+                    <button @click="triggerAutoReschedule" class="px-3 py-2.5 text-[10px] font-bold rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--text)] hover:bg-[var(--bg3)]/50 hover:text-[var(--pur)] transition-colors focus:outline-none flex flex-col items-center justify-center gap-1.5">
+                        <svg class="w-4 h-4 shrink-0 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                        <span>Auto-Resched</span>
+                    </button>
+
+                    <!-- Cancel -->
+                    <button @click="triggerCancelTask" class="px-3 py-2.5 text-[10px] font-bold rounded-xl border border-[var(--border)] bg-[var(--surface)] text-[var(--text)] hover:bg-rose-500/10 hover:text-rose-400 transition-colors focus:outline-none flex flex-col items-center justify-center gap-1.5">
+                        <svg class="w-4 h-4 shrink-0 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                        <span>Cancel Task</span>
+                    </button>
+                </div>
+
+                <!-- Close / Dismiss x -->
+                <button @click="closeModal" class="absolute top-4 right-4 text-[var(--text-secondary)] hover:text-[var(--text)] transition-colors">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+        </div>
+
+        <script>
+        function taskAlertManager() {
+            return {
+                open: false,
+                activeAlert: {},
+                showRescheduleInput: false,
+                customDueAt: '',
+                pollingInterval: null,
+                
+                init() {
+                    // Check alert on load
+                    setTimeout(() => {
+                        this.checkAlerts();
+                    }, 1000);
+
+                    // Poll every 30 seconds
+                    this.pollingInterval = setInterval(() => {
+                        this.checkAlerts();
+                    }, 30000);
+                },
+
+                async checkAlerts() {
+                    if (this.open) return;
+
+                    try {
+                        const response = await fetch('/assistant/tasks/upcoming-alerts');
+                        if (!response.ok) return;
+
+                        const data = await response.json();
+                        if (data && data.length > 0) {
+                            this.activeAlert = data[0];
+                            this.customDueAt = '';
+                            this.showRescheduleInput = false;
+                            this.open = true;
+                        }
+                    } catch (error) {
+                        console.error('Error fetching upcoming task alerts:', error);
+                    }
+                },
+
+                closeModal() {
+                    this.open = false;
+                    this.activeAlert = {};
+                },
+
+                getMinDateTime() {
+                    const now = new Date();
+                    const year = now.getFullYear();
+                    const month = String(now.getMonth() + 1).padStart(2, '0');
+                    const day = String(now.getDate()).padStart(2, '0');
+                    const hours = String(now.getHours()).padStart(2, '0');
+                    const minutes = String(now.getMinutes()).padStart(2, '0');
+                    return `${year}-${month}-${day}T${hours}:${minutes}`;
+                },
+
+                formatDate(dateStr) {
+                    if (!dateStr) return '';
+                    const date = new Date(dateStr);
+                    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + 
+                           ' at ' + 
+                           date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+                },
+
+                async triggerAutoReschedule() {
+                    if (!this.activeAlert.id) return;
+                    try {
+                        const response = await fetch(`/assistant/tasks/${this.activeAlert.id}/auto-reschedule`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                            }
+                        });
+                        const res = await response.json();
+                        if (res.success) {
+                            alert(res.message || 'Task auto-rescheduled successfully!');
+                            this.closeModal();
+                            window.dispatchEvent(new CustomEvent('task-updated'));
+                        } else {
+                            alert('Failed to auto-reschedule task.');
+                        }
+                    } catch (error) {
+                        console.error('Error in auto-rescheduling:', error);
+                    }
+                },
+
+                async triggerCancelTask() {
+                    if (!this.activeAlert.id) return;
+                    if (!confirm(`Cancel task: "${this.activeAlert.title}"?`)) return;
+
+                    try {
+                        const response = await fetch(`/assistant/tasks/${this.activeAlert.id}/cancel`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                            }
+                        });
+                        const res = await response.json();
+                        if (res.success) {
+                            alert(res.message || 'Task cancelled.');
+                            this.closeModal();
+                            window.dispatchEvent(new CustomEvent('task-updated'));
+                        } else {
+                            alert('Failed to cancel task.');
+                        }
+                    } catch (error) {
+                        console.error('Error cancelling task:', error);
+                    }
+                },
+
+                async submitReschedule() {
+                    if (!this.customDueAt) {
+                        alert('Please select a date and time.');
+                        return;
+                    }
+                    try {
+                        const response = await fetch(`/assistant/tasks/${this.activeAlert.id}/reschedule-to`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                            },
+                            body: JSON.stringify({ due_at: this.customDueAt })
+                        });
+                        const res = await response.json();
+                        if (res.success) {
+                            alert(res.message || 'Task rescheduled.');
+                            this.closeModal();
+                            window.dispatchEvent(new CustomEvent('task-updated'));
+                        } else {
+                            alert('Failed to reschedule task.');
+                        }
+                    } catch (error) {
+                        console.error('Error rescheduling task:', error);
+                    }
+                }
+            }
+        }
+        </script>
 
         <!-- Global Theme Toggle Script -->
         <script>

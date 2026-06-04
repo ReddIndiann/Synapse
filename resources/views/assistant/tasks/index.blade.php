@@ -290,6 +290,12 @@
             viewMode: localStorage.getItem('taskViewMode') || 'kanban',
             draggedTaskId: null,
             
+            init() {
+                window.addEventListener('task-updated', () => {
+                    window.location.reload();
+                });
+            },
+            
             setViewMode(mode) {
                 this.viewMode = mode;
                 localStorage.setItem('taskViewMode', mode);

@@ -43,6 +43,13 @@ Route::middleware('auth')->group(function () {
         Route::post('/chat', [AssistantController::class, 'store'])->name('chat.store');
         Route::post('/chat/clear', [AssistantController::class, 'clearChat'])->name('chat.clear');
         Route::post('/chat/resolve/{message}', [AssistantController::class, 'resolveConflict'])->name('chat.resolve');
+        
+        // Task alert and response endpoints
+        Route::get('/tasks/upcoming-alerts', [TaskController::class, 'upcomingAlerts'])->name('tasks.upcoming-alerts');
+        Route::post('/tasks/{task}/auto-reschedule', [TaskController::class, 'autoReschedule'])->name('tasks.auto-reschedule');
+        Route::post('/tasks/{task}/cancel', [TaskController::class, 'cancelTask'])->name('tasks.cancel');
+        Route::post('/tasks/{task}/reschedule-to', [TaskController::class, 'rescheduleTo'])->name('tasks.reschedule-to');
+
         Route::resource('tasks', TaskController::class)->except('show');
     });
 
