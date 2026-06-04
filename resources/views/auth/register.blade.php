@@ -14,39 +14,39 @@
 
         <div class="grid sm:grid-cols-2 gap-4">
             <div>
-                <x-input-label for="first_name" :value="__('First name')" class="text-slate-700" />
+                <x-input-label for="first_name" :value="__('First name')" class="text-[var(--text)]" />
                 <x-ui.input id="first_name" icon="user" class="mt-1.5" type="text" name="first_name" :value="old('first_name')" placeholder="Jane" required autofocus autocomplete="given-name" />
                 <x-input-error :messages="$errors->get('first_name')" class="mt-1.5" />
             </div>
 
             <div>
-                <x-input-label for="last_name" :value="__('Last name')" class="text-slate-700" />
+                <x-input-label for="last_name" :value="__('Last name')" class="text-[var(--text)]" />
                 <x-ui.input id="last_name" icon="user" class="mt-1.5" type="text" name="last_name" :value="old('last_name')" placeholder="Doe" autocomplete="family-name" />
                 <x-input-error :messages="$errors->get('last_name')" class="mt-1.5" />
             </div>
         </div>
 
         <div>
-            <x-input-label for="phone" :value="__('Phone')" class="text-slate-700" />
+            <x-input-label for="phone" :value="__('Phone')" class="text-[var(--text)]" />
             <x-ui.input id="phone" icon="phone" class="mt-1.5" type="text" name="phone" :value="old('phone')" placeholder="+1 (555) 000-0000" autocomplete="tel" />
             <x-input-error :messages="$errors->get('phone')" class="mt-1.5" />
         </div>
 
         <div>
-            <x-input-label for="email" :value="__('Email address')" class="text-slate-700" />
+            <x-input-label for="email" :value="__('Email address')" class="text-[var(--text)]" />
             <x-ui.input id="email" icon="email" class="mt-1.5" type="email" name="email" :value="old('email')" placeholder="you@company.com" required autocomplete="username" />
             <x-input-error :messages="$errors->get('email')" class="mt-1.5" />
         </div>
 
         <div class="grid sm:grid-cols-2 gap-4">
             <div>
-                <x-input-label for="password" :value="__('Password')" class="text-slate-700" />
+                <x-input-label for="password" :value="__('Password')" class="text-[var(--text)]" />
                 <x-ui.input id="password" icon="password" class="mt-1.5" type="password" name="password" placeholder="Min. 8 characters" required autocomplete="new-password" />
                 <x-input-error :messages="$errors->get('password')" class="mt-1.5" />
             </div>
 
             <div>
-                <x-input-label for="password_confirmation" :value="__('Confirm password')" class="text-slate-700" />
+                <x-input-label for="password_confirmation" :value="__('Confirm password')" class="text-[var(--text)]" />
                 <x-ui.input id="password_confirmation" icon="password" class="mt-1.5" type="password" name="password_confirmation" placeholder="Repeat password" required autocomplete="new-password" />
                 <x-input-error :messages="$errors->get('password_confirmation')" class="mt-1.5" />
             </div>
@@ -58,10 +58,10 @@
         </button>
     </form>
 
-    <div class="mt-8 pt-6 border-t border-slate-100 text-center">
-        <p class="text-sm text-slate-500">
+    <div class="mt-8 pt-6 border-t border-[var(--border)] text-center">
+        <p class="text-sm text-[var(--text-secondary)]">
             Already have an account?
-            <a href="{{ route('login') }}" class="font-semibold text-indigo-600 hover:text-indigo-800 transition">Sign in</a>
+            <a href="{{ route('login') }}" class="font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 transition">Sign in</a>
         </p>
     </div>
 </x-ui.auth-layout>

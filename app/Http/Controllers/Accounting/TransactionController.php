@@ -4,12 +4,20 @@ namespace App\Http\Controllers\Accounting;
 
 use App\Http\Controllers\Controller;
 use App\Models\Transaction;
+use App\Services\AccountingLedgerService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class TransactionController extends Controller
 {
+    protected $ledgerService;
+
+    public function __construct(AccountingLedgerService $ledgerService)
+    {
+        $this->ledgerService = $ledgerService;
+    }
+
     public function index(): View
     {
         $transactions = Transaction::query()
@@ -40,9 +48,20 @@ class TransactionController extends Controller
             'description' => ['nullable', 'string', 'max:255'],
             'occurred_at' => ['required', 'date'],
             'reference' => ['nullable', 'string', 'max:100'],
+            'payment_method' => ['required', 'string', 'in:Cash,Bank,Mobile Money'],
+            'exchange_rate' => ['required', 'numeric', 'min:0.000001'],
         ]);
 
-        Transaction::create([...$validated, 'user_id' => auth()->id()]);
+        $transaction = Transaction::create([
+            ...$validated,
+            'user_id' => auth()->id()
+        ]);
+
+        // Sync with double entry ledger
+        $this->ledgerService->recordTransaction($transaction);
+
+        // Check for budget breaches
+        $this->checkBudgetBreached($transaction);
 
         return redirect()->route('accounting.transactions.index')->with('status', 'Transaction recorded.');
     }
@@ -69,9 +88,17 @@ class TransactionController extends Controller
             'description' => ['nullable', 'string', 'max:255'],
             'occurred_at' => ['required', 'date'],
             'reference' => ['nullable', 'string', 'max:100'],
+            'payment_method' => ['required', 'string', 'in:Cash,Bank,Mobile Money'],
+            'exchange_rate' => ['required', 'numeric', 'min:0.000001'],
         ]);
 
         $transaction->update($validated);
+
+        // Sync with double entry ledger
+        $this->ledgerService->recordTransaction($transaction);
+
+        // Check for budget breaches
+        $this->checkBudgetBreached($transaction);
 
         return redirect()->route('accounting.transactions.index')->with('status', 'Transaction updated.');
     }
@@ -79,6 +106,10 @@ class TransactionController extends Controller
     public function destroy(Transaction $transaction): RedirectResponse
     {
         $this->authorizeTransaction($transaction);
+
+        // Delete ledger records first
+        $this->ledgerService->removeTransaction($transaction);
+        
         $transaction->delete();
 
         return redirect()->route('accounting.transactions.index')->with('status', 'Transaction deleted.');
@@ -87,5 +118,51 @@ class TransactionController extends Controller
     private function authorizeTransaction(Transaction $transaction): void
     {
         abort_unless($transaction->user_id === auth()->id(), 403);
+    }
+
+    private function checkBudgetBreached(Transaction $transaction): void
+    {
+        if ($transaction->type !== 'expense') {
+            return;
+        }
+
+        $budget = \App\Models\Budget::where('user_id', $transaction->user_id)
+            ->where('category', $transaction->category)
+            ->first();
+
+        if ($budget && $budget->amount > 0) {
+            $occurredAt = \Illuminate\Support\Carbon::parse($transaction->occurred_at);
+            
+            $totalSpent = Transaction::where('user_id', $transaction->user_id)
+                ->where('category', $transaction->category)
+                ->where('type', 'expense')
+                ->whereMonth('occurred_at', $occurredAt->month)
+                ->whereYear('occurred_at', $occurredAt->year)
+                ->sum('amount');
+
+            $level = null;
+            if ($totalSpent > $budget->amount) {
+                $level = 'exceeded';
+            } elseif ($totalSpent >= $budget->amount * 0.9) {
+                $level = 'warning_90';
+            } elseif ($totalSpent >= $budget->amount * 0.8) {
+                $level = 'warning_80';
+            }
+
+            if ($level) {
+                // Check if user was already notified for this budget level in this month
+                $notified = $transaction->user->notifications()
+                    ->where('type', 'App\Notifications\BudgetBreachedNotification')
+                    ->where('data->budget_id', $budget->id)
+                    ->where('data->level', $level)
+                    ->whereMonth('created_at', $occurredAt->month)
+                    ->whereYear('created_at', $occurredAt->year)
+                    ->exists();
+
+                if (!$notified) {
+                    $transaction->user->notify(new \App\Notifications\BudgetBreachedNotification($budget, $totalSpent, $level));
+                }
+            }
+        }
     }
 }

@@ -20,9 +20,12 @@
                     <td class="py-3"><x-ui.badge variant="primary">{{ $job->distributionChannel->name }}</x-ui.badge></td>
                     <td class="py-3"><x-ui.badge variant="{{ $job->status === 'published' ? 'success' : ($job->status === 'failed' ? 'danger' : 'warning') }}">{{ $job->status }}</x-ui.badge></td>
                     <td class="py-3 text-sm">{{ $job->scheduled_at?->format('M j, Y H:i') ?? 'Immediate' }}</td>
-                    <td class="py-2">
-                        <form method="POST" action="{{ route('distribution.publish.destroy', $job) }}">@csrf @method('DELETE')
-                            <x-ui.button type="submit" variant="link" size="sm" class="!text-red-600" onclick="return confirm('Remove from queue?')">Remove</x-ui.button>
+                    <td class="py-2 flex items-center gap-2">
+                        @if($job->status === 'processing' || $job->status === 'published' || $job->status === 'failed')
+                            <x-ui.button :href="route('distribution.publish.monitor', $job)" variant="link" size="sm" class="!text-indigo-600">Monitor</x-ui.button>
+                        @endif
+                        <form method="POST" action="{{ route('distribution.publish.destroy', $job) }}" class="inline">@csrf @method('DELETE')
+                            <x-ui.button type="submit" variant="link" size="sm" class="!text-red-600" data-confirm="Remove from queue?">Remove</x-ui.button>
                         </form>
                     </td>
                 </tr>

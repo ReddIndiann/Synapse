@@ -16,6 +16,8 @@ class Transaction extends Model
         'description',
         'occurred_at',
         'reference',
+        'payment_method',
+        'exchange_rate',
     ];
 
     protected function casts(): array
@@ -23,6 +25,7 @@ class Transaction extends Model
         return [
             'amount' => 'decimal:2',
             'occurred_at' => 'date',
+            'exchange_rate' => 'decimal:6',
         ];
     }
 
