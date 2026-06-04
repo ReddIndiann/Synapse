@@ -8,20 +8,21 @@
         <meta name="csrf-token" content="{{ csrf_token() }}">
         <title>{{ $title ? $title.' · ' : '' }}{{ config('app.name', 'Synapse') }}</title>
         
-        <!-- Theme Switcher Initializer -->
+        <!-- Theme Switcher Initializer (Default to Dark) -->
         <script>
-            if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-                document.documentElement.classList.add('dark');
-            } else {
+            if (localStorage.theme === 'light') {
                 document.documentElement.classList.remove('dark');
+            } else {
+                document.documentElement.classList.add('dark');
             }
         </script>
 
-        <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700&display=swap" rel="stylesheet" />
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
-    <body class="font-sans text-slate-900 antialiased">
+    <body class="font-sans text-[var(--text)] antialiased">
         <div class="auth-shell lg:grid lg:grid-cols-2">
             {{-- Brand panel --}}
             <div class="auth-panel-brand">
@@ -70,7 +71,7 @@
                 <div class="lg:hidden mb-10 text-center">
                     <a href="{{ url('/') }}" class="inline-flex items-center gap-3">
                         <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold">S</div>
-                        <span class="font-semibold text-slate-800 text-lg">Synapse</span>
+                        <span class="font-semibold text-[var(--text)] text-lg">Synapse</span>
                     </a>
                 </div>
 
@@ -82,9 +83,9 @@
                     <div class="auth-card">
                         @if ($title)
                             <div class="text-center mb-8">
-                                <h2 class="text-2xl font-bold text-slate-900 tracking-tight">{{ $title }}</h2>
+                                <h2 class="text-2xl font-bold text-[var(--text)] tracking-tight">{{ $title }}</h2>
                                 @if ($subtitle)
-                                    <p class="mt-2 text-sm text-slate-500 leading-relaxed">{{ $subtitle }}</p>
+                                    <p class="mt-2 text-sm text-[var(--text-muted)] leading-relaxed">{{ $subtitle }}</p>
                                 @endif
                             </div>
                         @endif
@@ -92,7 +93,7 @@
                         {{ $slot }}
                     </div>
 
-                    <p class="mt-6 text-center text-xs text-slate-400">
+                    <p class="mt-6 text-center text-xs text-[var(--text-secondary)]">
                         Secured with enterprise-grade encryption
                     </p>
                 </div>

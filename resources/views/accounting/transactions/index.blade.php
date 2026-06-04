@@ -45,11 +45,11 @@
                     </td>
                     <td class="py-4">
                         <div class="flex gap-2 justify-center items-center">
-                            <x-ui.button :href="route('accounting.transactions.edit', $tx)" variant="link" size="sm" class="!text-indigo-600">Edit</x-ui.button>
-                            <span class="text-slate-200">|</span>
+                            <x-ui.button :href="route('accounting.transactions.edit', $tx)" variant="link" size="sm" class="!text-indigo-600 dark:!text-indigo-400">Edit</x-ui.button>
+                            <span class="text-[var(--border)]">|</span>
                             <form method="POST" action="{{ route('accounting.transactions.destroy', $tx) }}" class="inline">
                                 @csrf @method('DELETE')
-                                <x-ui.button type="submit" variant="link" size="sm" class="!text-rose-600" onclick="return confirm('Delete transaction?')">Delete</x-ui.button>
+                                <x-ui.button type="submit" variant="link" size="sm" class="!text-rose-600 dark:!text-rose-400" onclick="return confirm('Delete transaction?')">Delete</x-ui.button>
                             </form>
                         </div>
                     </td>

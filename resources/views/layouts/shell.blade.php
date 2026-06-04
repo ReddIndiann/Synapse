@@ -5,12 +5,15 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
         <title>{{ config('app.name', 'Synapse') }}</title>
-        <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700&display=swap" rel="stylesheet" />
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
-    <body class="font-sans antialiased text-slate-900">
-        <div class="min-h-screen flex">
+    <body class="font-sans antialiased text-[var(--text)] overflow-x-hidden min-h-screen relative">
+        <div class="aur aur-a top-[-200px] left-[-200px]"></div>
+        <div class="aur aur-b bottom-[-200px] right-[-200px]"></div>
+        <div class="min-h-screen flex relative z-10">
             {{-- Sidebar --}}
             <aside class="hidden lg:flex lg:flex-col w-64 border-r border-slate-200 bg-white/80 backdrop-blur-sm shrink-0">
                 <div class="h-16 flex items-center px-6 border-b border-slate-200">

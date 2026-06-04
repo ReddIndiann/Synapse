@@ -18,16 +18,16 @@
                 <tr class="border-b border-slate-100 hover:bg-slate-50/40 transition-colors">
                     <td class="py-4">
                         <div class="flex items-start gap-3">
-                            <div class="w-4.5 h-4.5 mt-0.5 rounded-md border border-slate-300 flex items-center justify-center shrink-0 text-white bg-white/40
-                                @if($task->status === 'completed') !bg-indigo-600 !border-indigo-600 @endif">
+                            <div class="w-4.5 h-4.5 mt-0.5 rounded-md border border-[var(--border)] flex items-center justify-center shrink-0 text-white bg-[var(--surface)]/40
+                                @if($task->status === 'completed') !bg-[var(--pur)] !border-[var(--pur)] @endif">
                                 @if($task->status === 'completed')
                                     <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
                                 @endif
                             </div>
                             <div class="min-w-0">
-                                <p class="font-bold text-slate-800 text-xs @if($task->status === 'completed') line-through text-slate-400 @endif">{{ $task->title }}</p>
+                                <p class="font-bold text-[var(--text)] text-xs @if($task->status === 'completed') line-through text-[var(--text-secondary)] opacity-60 @endif">{{ $task->title }}</p>
                                 @if ($task->description)
-                                    <p class="text-[10px] text-slate-400 font-semibold mt-0.5 truncate max-w-[200px] sm:max-w-md">{{ $task->description }}</p>
+                                    <p class="text-[10px] text-[var(--text-secondary)] font-semibold mt-0.5 truncate max-w-[200px] sm:max-w-md">{{ $task->description }}</p>
                                 @endif
                             </div>
                         </div>
@@ -42,16 +42,16 @@
                             {{ str_replace('_', ' ', $task->status) }}
                         </x-ui.badge>
                     </td>
-                    <td class="py-4 text-slate-600 font-medium text-xs">
+                    <td class="py-4 text-[var(--text-muted)] font-medium text-xs">
                         {{ $task->due_at?->format('M j, Y \a\t g:i A') ?? 'No deadline' }}
                     </td>
                     <td class="py-4">
                         <div class="flex gap-2 justify-center items-center">
-                            <x-ui.button :href="route('assistant.tasks.edit', $task)" variant="link" size="sm" class="!text-indigo-600">Edit</x-ui.button>
-                            <span class="text-slate-200">|</span>
+                            <x-ui.button :href="route('assistant.tasks.edit', $task)" variant="link" size="sm" class="!text-indigo-600 dark:!text-indigo-400">Edit</x-ui.button>
+                            <span class="text-[var(--border)]">|</span>
                             <form method="POST" action="{{ route('assistant.tasks.destroy', $task) }}" class="inline">
                                 @csrf @method('DELETE')
-                                <x-ui.button type="submit" variant="link" size="sm" class="!text-rose-600" onclick="return confirm('Delete task?')">Delete</x-ui.button>
+                                <x-ui.button type="submit" variant="link" size="sm" class="!text-rose-600 dark:!text-rose-400" onclick="return confirm('Delete task?')">Delete</x-ui.button>
                             </form>
                         </div>
                     </td>

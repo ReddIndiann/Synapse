@@ -20,7 +20,7 @@
                 <x-ui.card class="relative flex flex-col justify-between overflow-hidden group">
                     <div>
                         <!-- File Icon Preview Header -->
-                        <div class="h-32 mb-4 rounded-2xl bg-slate-950/5 border border-slate-100 flex items-center justify-center relative overflow-hidden shadow-inner">
+                        <div class="h-32 mb-4 rounded-2xl bg-[var(--bg2)] border border-[var(--border)] flex items-center justify-center relative overflow-hidden shadow-inner">
                             <div class="absolute inset-0 bg-gradient-to-tr from-indigo-500/5 to-purple-500/5 group-hover:opacity-100 opacity-60 transition-opacity"></div>
                             
                             @if($isAudio)
@@ -50,14 +50,14 @@
 
                         <!-- Asset details -->
                         <div class="space-y-1 mb-4">
-                            <p class="font-bold text-slate-800 text-xs tracking-tight truncate">{{ $asset->title }}</p>
-                            <p class="text-[10px] text-slate-400 font-semibold truncate">{{ $asset->filename }}</p>
+                            <p class="font-bold text-[var(--text)] text-xs tracking-tight truncate">{{ $asset->title }}</p>
+                            <p class="text-[10px] text-[var(--text-secondary)] font-semibold truncate">{{ $asset->filename }}</p>
                         </div>
                     </div>
 
                     <div>
                         <!-- Details line -->
-                        <div class="flex items-center justify-between text-[9px] text-slate-400 font-semibold border-t border-slate-100 pt-3 mb-4">
+                        <div class="flex items-center justify-between text-[9px] text-[var(--text-secondary)] font-semibold border-t border-[var(--border)] pt-3 mb-4">
                             <span>{{ number_format($asset->size / (1024 * 1024), 2) }} MB</span>
                             <span>{{ $asset->created_at->format('M j, Y') }}</span>
                         </div>

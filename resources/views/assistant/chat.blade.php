@@ -8,13 +8,13 @@
 
     <div class="grid lg:grid-cols-3 gap-6">
         <div class="lg:col-span-2">
-            <x-ui.card class="h-[600px] flex flex-col">
+            <x-ui.card class="h-[600px] flex flex-col relative overflow-hidden">
                 <!-- Chat Messages Scroll Area -->
                 <div id="chat-messages" class="flex-1 overflow-y-auto space-y-4 mb-6 pr-2 scroll-smooth">
                     @if (session('status'))
                         <div class="flex gap-3">
-                            <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold shrink-0">✓</div>
-                            <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 flex-1 text-sm text-emerald-800">
+                            <div class="w-8 h-8 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center text-xs font-bold shrink-0">✓</div>
+                            <div class="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 flex-1 text-sm text-emerald-400">
                                 {{ session('status') }}
                             </div>
                         </div>
@@ -24,25 +24,25 @@
                         @if ($msg->role === 'user')
                             <!-- User Message -->
                             <div class="flex justify-end items-end gap-2">
-                                <div class="bg-indigo-600 text-white rounded-2xl rounded-tr-none px-4 py-3 max-w-[85%] shadow-sm text-sm">
+                                <div class="cbbl cbus text-sm">
                                     {{ $msg->content }}
                                 </div>
-                                <div class="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[10px] font-bold shrink-0 shadow-sm">
+                                <div class="w-7 h-7 rounded-full bg-[var(--pur)]/20 text-[var(--pur)] border border-[var(--pur)]/20 flex items-center justify-center text-[10px] font-bold shrink-0 shadow-sm">
                                     ME
                                 </div>
                             </div>
                         @else
                             <!-- Assistant Message -->
                             <div class="flex justify-start items-start gap-2">
-                                <div class="w-7 h-7 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold shrink-0 shadow-sm">
+                                <div class="logo-i !w-7 !h-7 !rounded-full !text-[9px] shadow-sm shrink-0 flex items-center justify-center">
                                     AI
                                 </div>
-                                <div class="bg-slate-50 border border-slate-200 rounded-2xl rounded-tl-none px-4 py-3 max-w-[85%] text-slate-800 shadow-sm text-sm">
+                                <div class="cbbl cbai text-sm flex-1">
                                     <div class="whitespace-pre-line">{{ $msg->content }}</div>
 
                                     <!-- Render Action Buttons for Conflict Resolution -->
                                     @if ($msg->metadata && isset($msg->metadata['type']) && $msg->metadata['type'] === 'task_conflict')
-                                        <div class="mt-4 pt-3 border-t border-slate-200/60 flex flex-wrap gap-2">
+                                        <div class="mt-4 pt-3 border-t border-[var(--border)] flex flex-wrap gap-2">
                                             <form method="POST" action="{{ route('assistant.chat.resolve', $msg->id) }}">
                                                 @csrf
                                                 <input type="hidden" name="action" value="reschedule">
@@ -75,7 +75,7 @@
                 </div>
 
                 <!-- Input Form -->
-                <form method="POST" action="{{ route('assistant.chat.store') }}" class="border-t border-slate-100 pt-4 flex gap-3 items-end">
+                <form method="POST" action="{{ route('assistant.chat.store') }}" class="border-t border-[var(--border)] pt-4 flex gap-3 items-end">
                     @csrf
                     <div class="flex-1">
                         <label for="prompt" class="sr-only">Command</label>
@@ -89,7 +89,7 @@
 
         <div class="space-y-4">
             <x-ui.card>
-                <h3 class="font-semibold text-slate-900 mb-3">Quick actions</h3>
+                <h3 class="font-bold text-[var(--text)] text-sm tracking-tight uppercase border-b border-[var(--border)] pb-2 mb-3">Quick actions</h3>
                 <div class="space-y-2">
                     <x-ui.button :href="route('assistant.tasks.create')" variant="ghost" size="sm" class="w-full justify-start">+ New task</x-ui.button>
                     <x-ui.button :href="route('accounting.transactions.create')" variant="ghost" size="sm" class="w-full justify-start">+ Record transaction</x-ui.button>
@@ -98,20 +98,20 @@
             </x-ui.card>
 
             <x-ui.card class="flex flex-col max-h-[350px]">
-                <h3 class="font-semibold text-slate-900 mb-3 shrink-0">Recent tasks</h3>
+                <h3 class="font-bold text-[var(--text)] text-sm tracking-tight uppercase border-b border-[var(--border)] pb-2 mb-3 shrink-0">Recent tasks</h3>
                 <div class="flex-1 overflow-y-auto space-y-2 pr-1">
                     @forelse ($recentTasks as $task)
-                        <div class="py-2 border-b border-slate-50 last:border-0">
-                            <p class="text-sm font-medium text-slate-800">{{ $task->title }}</p>
-                            <p class="text-xs text-slate-500 mt-0.5">
+                        <div class="py-2 border-b border-[var(--border)] last:border-0">
+                            <p class="text-sm font-semibold text-[var(--text)]">{{ $task->title }}</p>
+                            <p class="text-xs text-[var(--text-muted)] mt-0.5 font-medium">
                                 @if($task->due_at)
                                     Due: {{ $task->due_at->format('M j, g:i A') }} · 
                                 @endif
-                                <span class="capitalize font-semibold text-indigo-600">{{ $task->priority }}</span>
+                                <span class="capitalize font-bold text-[var(--pur)]">{{ $task->priority }}</span>
                             </p>
                         </div>
                     @empty
-                        <p class="text-sm text-slate-500">No tasks captured yet.</p>
+                        <p class="text-sm text-[var(--text-muted)] font-medium">No tasks captured yet.</p>
                     @endforelse
                 </div>
             </x-ui.card>

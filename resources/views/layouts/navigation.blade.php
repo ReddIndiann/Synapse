@@ -92,14 +92,14 @@
 @endphp
 
 <!-- DESKTOP FIXED SIDEBAR -->
-<aside class="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0 bg-slate-900 border-r border-slate-800 z-40">
+<aside class="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:bottom-0 lg:top-0 lg:left-0 bg-[var(--bg2)] border-r border-[var(--border)] z-40 transition-colors duration-300">
     <!-- Brand Header -->
-    <div class="flex items-center justify-between h-16 px-6 border-b border-slate-800">
+    <div class="flex items-center justify-between h-16 px-6 border-b border-[var(--border)]">
         <a href="{{ route('dashboard') }}" class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold shadow-sm shadow-indigo-600/30">
-                S
+            <div class="logo-i">
+                <i class="fa-solid fa-layer-group"></i>
             </div>
-            <span class="font-bold text-white text-lg tracking-tight">Synapse</span>
+            <span class="font-bold text-[var(--text)] text-lg tracking-tight">Synapse</span>
         </a>
     </div>
 
@@ -107,7 +107,7 @@
     <div class="flex-1 overflow-y-auto px-4 py-6 space-y-7">
         @foreach ($navGroups as $group)
             <div class="space-y-2">
-                <span class="px-4 text-[10px] font-bold uppercase tracking-widest text-slate-500">{{ $group['label'] }}</span>
+                <span class="px-4 text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)] opacity-80">{{ $group['label'] }}</span>
                 <nav class="space-y-1">
                     @foreach ($group['items'] as $item)
                         <a href="{{ route($item['route']) }}" class="{{ $item['active'] ? 'sidebar-link-active' : 'sidebar-link' }}">
@@ -123,21 +123,21 @@
     </div>
 
     <!-- User Profile & Footer Actions -->
-    <div class="p-4 border-t border-slate-800 bg-slate-950/20">
-        <div class="flex items-center justify-between gap-3 p-2 rounded-2xl hover:bg-white/5 transition-all">
+    <div class="p-4 border-t border-[var(--border)] bg-[var(--bg3)]/30">
+        <div class="flex items-center justify-between gap-3 p-2 rounded-2xl hover:bg-[var(--bg3)]/50 transition-all">
             <a href="{{ route('profile.edit') }}" class="flex items-center gap-2.5 min-w-0">
-                <div class="w-9 h-9 rounded-xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center font-bold text-sm border border-indigo-500/20">
+                <div class="w-9 h-9 rounded-xl bg-[var(--pur)]/20 text-[var(--pur)] flex items-center justify-center font-bold text-sm border border-[var(--pur)]/20">
                     {{ substr(Auth::user()->name, 0, 2) }}
                 </div>
                 <div class="min-w-0">
-                    <p class="text-xs font-semibold text-white truncate">{{ Auth::user()->name }}</p>
-                    <p class="text-[10px] text-slate-400 truncate">{{ Auth::user()->email }}</p>
+                    <p class="text-xs font-semibold text-[var(--text)] truncate">{{ Auth::user()->name }}</p>
+                    <p class="text-[10px] text-[var(--text-muted)] truncate">{{ Auth::user()->email }}</p>
                 </div>
             </a>
 
             <div class="flex items-center gap-1.5 shrink-0">
                 <!-- Theme Toggler -->
-                <button onclick="toggleTheme()" class="p-2 rounded-xl text-slate-500 hover:text-indigo-400 hover:bg-white/5 transition-colors" title="Toggle Light/Dark Theme">
+                <button onclick="toggleTheme()" class="p-2 rounded-xl text-[var(--text-secondary)] hover:text-[var(--pur)] hover:bg-[var(--pur)]/10 transition-colors" title="Toggle Light/Dark Theme">
                     <svg class="w-4 h-4 hidden dark:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M12 7a5 5 0 100 10 5 5 0 000-10z" />
                     </svg>
@@ -149,7 +149,7 @@
                 <!-- Logout button -->
                 <form method="POST" action="{{ route('logout') }}" class="inline">
                     @csrf
-                    <button type="submit" class="p-2 rounded-xl text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors" title="Log Out">
+                    <button type="submit" class="p-2 rounded-xl text-[var(--text-secondary)] hover:text-rose-400 hover:bg-rose-500/10 transition-colors" title="Log Out">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                         </svg>
@@ -171,17 +171,17 @@
      x-transition:leave="transition ease-in-out duration-300 transform" 
      x-transition:leave-start="translate-x-0" 
      x-transition:leave-end="-translate-x-full" 
-     class="fixed inset-y-0 left-0 z-50 w-72 bg-slate-900 flex flex-col p-6 shadow-2xl lg:hidden" style="display: none;">
+     class="fixed inset-y-0 left-0 z-50 w-72 bg-[var(--bg2)] border-r border-[var(--border)] flex flex-col p-6 shadow-2xl lg:hidden transition-colors duration-300" style="display: none;">
      
     <!-- Mobile Sidebar Close and Brand Header -->
-    <div class="flex items-center justify-between border-b border-slate-800 pb-5 mb-5">
+    <div class="flex items-center justify-between border-b border-[var(--border)] pb-5 mb-5">
         <a href="{{ route('dashboard') }}" class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold shadow-sm">
-                S
+            <div class="logo-i">
+                <i class="fa-solid fa-layer-group"></i>
             </div>
-            <span class="font-bold text-white text-base tracking-tight">Synapse</span>
+            <span class="font-bold text-[var(--text)] text-base tracking-tight">Synapse</span>
         </a>
-        <button @click="sidebarOpen = false" class="p-1.5 rounded-xl border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800 focus:outline-none">
+        <button @click="sidebarOpen = false" class="p-1.5 rounded-xl border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--bg3)]/50 focus:outline-none">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -192,7 +192,7 @@
     <div class="flex-1 overflow-y-auto space-y-7 pr-1">
         @foreach ($navGroups as $group)
             <div class="space-y-2">
-                <span class="text-[9px] font-bold uppercase tracking-widest text-slate-500 px-3">{{ $group['label'] }}</span>
+                <span class="text-[9px] font-bold uppercase tracking-widest text-[var(--text-secondary)] opacity-80 px-3">{{ $group['label'] }}</span>
                 <nav class="space-y-1">
                     @foreach ($group['items'] as $item)
                         <a href="{{ route($item['route']) }}" @click="sidebarOpen = false" class="{{ $item['active'] ? 'sidebar-link-active' : 'sidebar-link' }}">
@@ -208,20 +208,20 @@
     </div>
 
     <!-- Mobile profile card -->
-    <div class="mt-auto pt-5 border-t border-slate-800">
-        <div class="flex items-center justify-between gap-3 bg-slate-950/20 p-2.5 rounded-2xl">
+    <div class="mt-auto pt-5 border-t border-[var(--border)]">
+        <div class="flex items-center justify-between gap-3 bg-[var(--bg3)]/30 p-2.5 rounded-2xl">
             <a href="{{ route('profile.edit') }}" @click="sidebarOpen = false" class="flex items-center gap-2.5 min-w-0">
-                <div class="w-8 h-8 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center font-bold text-xs border border-indigo-500/20">
+                <div class="w-8 h-8 rounded-lg bg-[var(--pur)]/20 text-[var(--pur)] flex items-center justify-center font-bold text-xs border border-[var(--pur)]/20">
                     {{ substr(Auth::user()->name, 0, 2) }}
                 </div>
                 <div class="min-w-0">
-                    <p class="text-xs font-semibold text-white truncate">{{ Auth::user()->name }}</p>
+                    <p class="text-xs font-semibold text-[var(--text)] truncate">{{ Auth::user()->name }}</p>
                 </div>
             </a>
             
             <div class="flex items-center gap-1.5 shrink-0">
                 <!-- Theme Toggler -->
-                <button onclick="toggleTheme()" class="p-1.5 rounded-lg text-slate-500 hover:text-indigo-400 hover:bg-white/5 transition-colors" title="Toggle Light/Dark Theme">
+                <button onclick="toggleTheme()" class="p-1.5 rounded-lg text-[var(--text-secondary)] hover:text-[var(--pur)] hover:bg-[var(--bg3)]/50 transition-colors" title="Toggle Light/Dark Theme">
                     <svg class="w-4 h-4 hidden dark:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M12 7a5 5 0 100 10 5 5 0 000-10z" />
                     </svg>
@@ -232,7 +232,7 @@
 
                 <form method="POST" action="{{ route('logout') }}" class="inline">
                     @csrf
-                    <button type="submit" class="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors">
+                    <button type="submit" class="p-1.5 rounded-lg text-[var(--text-secondary)] hover:text-rose-400 hover:bg-rose-500/10 transition-colors">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                         </svg>

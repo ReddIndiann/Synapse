@@ -29,17 +29,17 @@
                         {{ number_format($budget->amount, 2) }} GHS
                     </td>
                     <td class="py-4 text-center">
-                        <x-ui.badge class="!py-0.5 !px-2.5 !text-[10px] font-bold !bg-indigo-50 !text-indigo-700 border border-indigo-100">
+                        <x-ui.badge variant="primary" class="!py-0.5 !px-2.5 !text-[10px] font-bold">
                             {{ ucfirst($budget->period) }}
                         </x-ui.badge>
                     </td>
                     <td class="py-4">
                         <div class="flex gap-2 justify-center items-center">
-                            <x-ui.button :href="route('accounting.budgets.edit', $budget)" variant="link" size="sm" class="!text-indigo-600">Edit</x-ui.button>
-                            <span class="text-slate-200">|</span>
+                            <x-ui.button :href="route('accounting.budgets.edit', $budget)" variant="link" size="sm" class="!text-indigo-600 dark:!text-indigo-400">Edit</x-ui.button>
+                            <span class="text-[var(--border)]">|</span>
                             <form method="POST" action="{{ route('accounting.budgets.destroy', $budget) }}" class="inline">
                                 @csrf @method('DELETE')
-                                <x-ui.button type="submit" variant="link" size="sm" class="!text-rose-600" onclick="return confirm('Delete budget?')">Delete</x-ui.button>
+                                <x-ui.button type="submit" variant="link" size="sm" class="!text-rose-600 dark:!text-rose-400" onclick="return confirm('Delete budget?')">Delete</x-ui.button>
                             </form>
                         </div>
                     </td>

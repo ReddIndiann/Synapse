@@ -22,16 +22,15 @@
     }
 @endphp
 
-<div {{ $attributes->merge(['class' => 'backdrop-blur-md shadow-[0_8px_30px_rgb(0,0,0,0.015)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)] rounded-3xl p-6 transition-all duration-300 hover:shadow-[0_12px_40px_rgba(99,102,241,0.04)] hover:-translate-y-0.5 flex justify-between items-center']) }}
-     style="background-color: var(--surface); border: 1px solid var(--border); color: var(--text);">
-    <div class="space-y-1">
-        <p class="text-xs font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">{{ $label }}</p>
-        <p class="text-2xl font-extrabold tracking-tight">{{ $value }}</p>
+<div {{ $attributes->merge(['class' => 'stpill flex justify-between items-center']) }}>
+    <div class="space-y-1 relative z-10">
+        <p class="text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)]">{{ $label }}</p>
+        <p class="text-2xl font-bold tracking-tight gt">{{ $value }}</p>
         @if ($hint)
-            <p class="text-xs text-slate-400 dark:text-slate-500 font-medium">{{ $hint }}</p>
+            <p class="text-xs text-[var(--text-muted)] font-medium">{{ $hint }}</p>
         @endif
     </div>
-    <div class="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-inner {{ $iconBg }}">
+    <div class="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 {{ $iconBg }} relative z-10">
         <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             {!! $svgPath !!}
         </svg>
