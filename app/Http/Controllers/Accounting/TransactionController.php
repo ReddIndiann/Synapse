@@ -130,7 +130,7 @@ class TransactionController extends Controller
             ->where('category', $transaction->category)
             ->first();
 
-        if ($budget) {
+        if ($budget && $budget->amount > 0) {
             $occurredAt = \Illuminate\Support\Carbon::parse($transaction->occurred_at);
             
             $totalSpent = Transaction::where('user_id', $transaction->user_id)
@@ -140,8 +140,28 @@ class TransactionController extends Controller
                 ->whereYear('occurred_at', $occurredAt->year)
                 ->sum('amount');
 
+            $level = null;
             if ($totalSpent > $budget->amount) {
-                $transaction->user->notify(new \App\Notifications\BudgetBreachedNotification($budget, $totalSpent));
+                $level = 'exceeded';
+            } elseif ($totalSpent >= $budget->amount * 0.9) {
+                $level = 'warning_90';
+            } elseif ($totalSpent >= $budget->amount * 0.8) {
+                $level = 'warning_80';
+            }
+
+            if ($level) {
+                // Check if user was already notified for this budget level in this month
+                $notified = $transaction->user->notifications()
+                    ->where('type', 'App\Notifications\BudgetBreachedNotification')
+                    ->where('data->budget_id', $budget->id)
+                    ->where('data->level', $level)
+                    ->whereMonth('created_at', $occurredAt->month)
+                    ->whereYear('created_at', $occurredAt->year)
+                    ->exists();
+
+                if (!$notified) {
+                    $transaction->user->notify(new \App\Notifications\BudgetBreachedNotification($budget, $totalSpent, $level));
+                }
             }
         }
     }

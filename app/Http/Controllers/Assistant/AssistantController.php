@@ -199,6 +199,134 @@ class AssistantController extends Controller
                 ]);
                 break;
 
+            case 'query_tasks':
+                $status = $params['status'] ?? 'all';
+                $query = Task::where('user_id', $userId);
+                
+                if ($status !== 'all') {
+                    $query->where('status', $status);
+                }
+                
+                $tasksList = $query->latest()->limit(8)->get();
+                
+                if ($tasksList->isEmpty()) {
+                    $msg = "You have no " . ($status !== 'all' ? str_replace('_', ' ', $status) . " " : "") . "tasks registered in your backlog.";
+                } else {
+                    $msg = "Here are your " . ($status !== 'all' ? str_replace('_', ' ', $status) . " " : "") . "tasks:\n";
+                    foreach ($tasksList as $idx => $t) {
+                        $priorityBadge = strtoupper($t->priority);
+                        $dueStr = $t->due_at ? " (due " . $t->due_at->format('M j, g:i A') . ")" : "";
+                        $statusStr = str_replace('_', ' ', $t->status);
+                        $msg .= ($idx + 1) . ". **{$t->title}** — Priority: {$priorityBadge} · Status: {$statusStr}{$dueStr}\n";
+                    }
+                }
+
+                AssistantMessage::create([
+                    'user_id' => $userId,
+                    'role' => 'assistant',
+                    'content' => $msg,
+                ]);
+                break;
+
+            case 'query_finances':
+                $queryType = $params['query_type'] ?? 'balance';
+                
+                if ($queryType === 'budget_status') {
+                    $budgets = \App\Models\Budget::where('user_id', $userId)->get();
+                    if ($budgets->isEmpty()) {
+                        $msg = "You don't have any budgets set up currently. You can configure one in the Budgets Tracker.";
+                    } else {
+                        $msg = "Here is your monthly budget status:\n";
+                        foreach ($budgets as $b) {
+                            $spent = Transaction::where('user_id', $userId)
+                                ->where('category', $b->category)
+                                ->where('type', 'expense')
+                                ->whereMonth('occurred_at', now()->month)
+                                ->whereYear('occurred_at', now()->year)
+                                ->sum('amount');
+                            
+                            $remaining = $b->amount - $spent;
+                            $percent = $b->amount > 0 ? round(($spent / $b->amount) * 100) : 0;
+                            $status = $spent > $b->amount ? "⚠️ EXCEEDED" : "✅ Under Limit";
+                            
+                            $msg .= "• **{$b->category}**: Spent " . number_format($spent, 2) . " GHS / Budget " . number_format($b->amount, 2) . " GHS ({$percent}% used) · *{$status}*\n";
+                        }
+                    }
+                } elseif ($queryType === 'list') {
+                    $txs = Transaction::where('user_id', $userId)->latest()->limit(5)->get();
+                    if ($txs->isEmpty()) {
+                        $msg = "No transaction records found in your ledger.";
+                    } else {
+                        $msg = "Here are your 5 most recent transactions:\n";
+                        foreach ($txs as $tx) {
+                            $sign = $tx->type === 'income' ? '+' : '-';
+                            $msg .= "• {$tx->occurred_at->format('M d')} — **{$tx->category}**: {$sign}" . number_format($tx->amount, 2) . " {$tx->currency} ({$tx->payment_method})\n";
+                        }
+                    }
+                } else {
+                    $totalIncome = Transaction::where('user_id', $userId)->where('type', 'income')->sum('amount');
+                    $totalExpense = Transaction::where('user_id', $userId)->where('type', 'expense')->sum('amount');
+                    $balance = $totalIncome - $totalExpense;
+                    
+                    if ($queryType === 'total_income') {
+                        $msg = "Your total income recorded is **" . number_format($totalIncome, 2) . " GHS**.";
+                    } elseif ($queryType === 'total_expense') {
+                        $msg = "Your total expenses recorded sum up to **" . number_format($totalExpense, 2) . " GHS**.";
+                    } else {
+                        $msg = "Financial Ledger Summary:\n" .
+                               "• Total Income: **" . number_format($totalIncome, 2) . " GHS**\n" .
+                               "• Total Expenses: **" . number_format($totalExpense, 2) . " GHS**\n" .
+                               "• Net Balance: **" . number_format($balance, 2) . " GHS**";
+                    }
+                }
+
+                AssistantMessage::create([
+                    'user_id' => $userId,
+                    'role' => 'assistant',
+                    'content' => $msg,
+                ]);
+                break;
+
+            case 'query_queue':
+                $status = $params['status'] ?? 'all';
+                $query = PublishJob::where('user_id', $userId);
+                
+                if ($status !== 'all') {
+                    $query->where('status', $status);
+                }
+                
+                $jobs = $query->latest()->limit(5)->get();
+                
+                if ($jobs->isEmpty()) {
+                    $msg = "There are no " . ($status !== 'all' ? $status . " " : "") . "publishing jobs currently in your queue.";
+                } else {
+                    $msg = "Here are your recent publication jobs:\n";
+                    foreach ($jobs as $job) {
+                        $mediaTitle = $job->mediaAsset?->title ?? 'Untitled Media';
+                        $channelName = $job->distributionChannel?->name ?? 'Unknown Channel';
+                        $statusBadge = strtoupper($job->status);
+                        
+                        $dateStr = '';
+                        if ($job->status === 'published' && $job->published_at) {
+                            $dateStr = " (live " . $job->published_at->diffForHumans() . ")";
+                        } elseif ($job->status === 'scheduled' && $job->scheduled_at) {
+                            $dateStr = " (scheduled for " . $job->scheduled_at->format('M j, g:i A') . ")";
+                        }
+                        
+                        $msg .= "• **{$mediaTitle}** to **{$channelName}** — Status: {$statusBadge}{$dateStr}\n";
+                        if ($job->published_url) {
+                            $msg .= "  *Link: [View Media]({$job->published_url})*\n";
+                        }
+                    }
+                }
+
+                AssistantMessage::create([
+                    'user_id' => $userId,
+                    'role' => 'assistant',
+                    'content' => $msg,
+                ]);
+                break;
+
             default:
                 AssistantMessage::create([
                     'user_id' => $userId,

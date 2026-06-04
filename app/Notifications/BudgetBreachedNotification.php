@@ -12,14 +12,16 @@ class BudgetBreachedNotification extends Notification
 
     protected $budget;
     protected $totalSpent;
+    protected $level;
 
     /**
      * Create a new notification instance.
      */
-    public function __construct(Budget $budget, float $totalSpent)
+    public function __construct(Budget $budget, float $totalSpent, string $level = 'exceeded')
     {
         $this->budget = $budget;
         $this->totalSpent = $totalSpent;
+        $this->level = $level;
     }
 
     /**
@@ -39,12 +41,21 @@ class BudgetBreachedNotification extends Notification
      */
     public function toArray(object $notifiable): array
     {
+        $percent = $this->budget->amount > 0 ? round(($this->totalSpent / $this->budget->amount) * 100) : 0;
+        
+        if ($this->level === 'warning_80' || $this->level === 'warning_90') {
+            $message = "Financial warning: Category '{$this->budget->category}' has reached " . number_format($this->totalSpent, 2) . " GHS ({$percent}% of " . number_format($this->budget->amount, 2) . " GHS budget).";
+        } else {
+            $message = "Financial alert: Budget limit of " . number_format($this->budget->amount, 2) . " GHS for category '{$this->budget->category}' exceeded. Current spent is " . number_format($this->totalSpent, 2) . " GHS.";
+        }
+
         return [
             'budget_id' => $this->budget->id,
             'category' => $this->budget->category,
             'limit_amount' => $this->budget->amount,
             'total_spent' => $this->totalSpent,
-            'message' => "Financial alert: Budget limit of " . number_format($this->budget->amount, 2) . " GHS for category '{$this->budget->category}' exceeded. Current spent is " . number_format($this->totalSpent, 2) . " GHS.",
+            'level' => $this->level,
+            'message' => $message,
             'type' => 'finance',
         ];
     }

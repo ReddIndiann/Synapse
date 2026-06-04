@@ -62,24 +62,13 @@
 
     <!-- Analytics & Live assistant Row -->
     <div class="grid lg:grid-cols-2 gap-6 mb-8">
-        <!-- Agent Activity flex chart -->
+        <!-- Cash Flow Trend Chart -->
         <x-ui.card class="relative overflow-hidden">
             <div class="flex items-center justify-between border-b border-[var(--border)] pb-3 mb-4">
-                <h3 class="font-bold text-[var(--text)] text-sm tracking-tight uppercase">Agent Activity · Last 7 days</h3>
-                <span class="text-[10px] font-semibold text-[var(--text-secondary)] uppercase">Platform actions</span>
+                <h3 class="font-bold text-[var(--text)] text-sm tracking-tight uppercase">Cash Flow Trend · Last 30 days</h3>
+                <span class="text-[10px] font-semibold text-[var(--text-secondary)] uppercase">Income vs Expense</span>
             </div>
-            <div class="flex items-end gap-4 h-[120px] px-2 py-2">
-                <div class="bbar hover:opacity-90 transition-all cursor-pointer" style="height: 45%" title="Mon: 45 runs"></div>
-                <div class="bbar hover:opacity-90 transition-all cursor-pointer" style="height: 72%" title="Tue: 72 runs"></div>
-                <div class="bbar hover:opacity-90 transition-all cursor-pointer" style="height: 55%" title="Wed: 55 runs"></div>
-                <div class="bbar hover:opacity-90 transition-all cursor-pointer" style="height: 88%" title="Thu: 88 runs"></div>
-                <div class="bbar hover:opacity-90 transition-all cursor-pointer" style="height: 63%" title="Fri: 63 runs"></div>
-                <div class="bbar hover:opacity-90 transition-all cursor-pointer" style="height: 95%" title="Sat: 95 runs"></div>
-                <div class="bbar hover:opacity-90 transition-all cursor-pointer" style="height: 78%" title="Sun: 78 runs"></div>
-            </div>
-            <div class="flex justify-between mt-2 px-2 text-[10px] font-semibold text-[var(--text-secondary)]">
-                <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
-            </div>
+            <div id="cash-flow-chart" class="min-h-[160px] w-full"></div>
         </x-ui.card>
 
         <!-- Live assistant feed preview -->
@@ -99,6 +88,47 @@
                     <div class="tdot" style="animation-delay:.15s"></div>
                     <div class="tdot" style="animation-delay:.3s"></div>
                 </div>
+            </div>
+        </x-ui.card>
+    </div>
+
+    <!-- Financial Budgets & Publishing Mix Row -->
+    <div class="grid lg:grid-cols-2 gap-6 mb-8">
+        <!-- Budget Tracking Card -->
+        <x-ui.card class="relative overflow-hidden">
+            <div class="flex items-center justify-between border-b border-[var(--border)] pb-3 mb-4">
+                <h3 class="font-bold text-[var(--text)] text-sm tracking-tight uppercase">Monthly Budgets Usage</h3>
+                <span class="text-[10px] font-semibold text-[var(--text-secondary)] uppercase">Spent vs Limit</span>
+            </div>
+            @if(count($budgetChartData['categories']) > 0)
+                <div id="budget-chart" class="min-h-[220px] w-full"></div>
+            @else
+                <div class="py-16 text-center">
+                    <div class="w-12 h-12 rounded-full bg-[var(--bg2)]/80 flex items-center justify-center mx-auto mb-3 text-[var(--text-secondary)]">
+                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" /></svg>
+                    </div>
+                    <p class="text-xs text-[var(--text-secondary)] font-medium">No budgets configured for this period.</p>
+                </div>
+            @endif
+        </x-ui.card>
+
+        <!-- Publication Channels Mix Card -->
+        <x-ui.card class="relative overflow-hidden flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between border-b border-[var(--border)] pb-3 mb-4">
+                    <h3 class="font-bold text-[var(--text)] text-sm tracking-tight uppercase">Publish Distribution Mix</h3>
+                    <span class="text-[10px] font-semibold text-[var(--text-secondary)] uppercase">Queue Volume</span>
+                </div>
+                @if(count($publicationMixData['series']) > 0)
+                    <div id="publish-mix-chart" class="min-h-[220px] w-full flex items-center justify-center py-2"></div>
+                @else
+                    <div class="py-16 text-center">
+                        <div class="w-12 h-12 rounded-full bg-[var(--bg2)]/80 flex items-center justify-center mx-auto mb-3 text-[var(--text-secondary)]">
+                            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+                        </div>
+                        <p class="text-xs text-[var(--text-secondary)] font-medium">No publish jobs processed yet.</p>
+                    </div>
+                @endif
             </div>
         </x-ui.card>
     </div>
@@ -166,4 +196,217 @@
             </div>
         </x-ui.card>
     </div>
+
+    <!-- ApexCharts Library & Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            // Theme Mode Helper
+            const getThemeMode = () => document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+
+            // 1. CASH FLOW CHART (Area)
+            const cashFlowData = @json($cashFlowData);
+            const cashFlowOptions = {
+                series: [
+                    { name: 'Income', data: cashFlowData.income },
+                    { name: 'Expense', data: cashFlowData.expense }
+                ],
+                chart: {
+                    type: 'area',
+                    height: 160,
+                    toolbar: { show: false },
+                    zoom: { enabled: false },
+                    background: 'transparent',
+                    foreColor: 'var(--text-secondary)',
+                    fontFamily: 'Space Grotesk, sans-serif'
+                },
+                colors: ['#10b981', '#ef4444'], // Emerald (Income), Rose (Expense)
+                dataLabels: { enabled: false },
+                stroke: { curve: 'smooth', width: 2 },
+                grid: {
+                    borderColor: 'var(--border)',
+                    strokeDashArray: 4,
+                    xaxis: { lines: { show: false } },
+                    padding: { top: 0, right: 10, bottom: 0, left: 10 }
+                },
+                xaxis: {
+                    categories: cashFlowData.categories,
+                    labels: { show: true, style: { fontSize: '9px', fontWeight: 600 } },
+                    axisBorder: { show: false },
+                    axisTicks: { show: false }
+                },
+                yaxis: {
+                    labels: { show: true, style: { fontSize: '9px', fontWeight: 600 } }
+                },
+                theme: { mode: getThemeMode() },
+                tooltip: {
+                    theme: getThemeMode(),
+                    x: { format: 'dd MMM' }
+                },
+                fill: {
+                    type: 'gradient',
+                    gradient: {
+                        shadeIntensity: 1,
+                        opacityFrom: 0.25,
+                        opacityTo: 0.05,
+                        stops: [0, 90, 100]
+                    }
+                },
+                legend: {
+                    position: 'top',
+                    horizontalAlign: 'right',
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    labels: { colors: 'var(--text)' }
+                }
+            };
+            const cashFlowChart = new ApexCharts(document.querySelector("#cash-flow-chart"), cashFlowOptions);
+            cashFlowChart.render();
+
+            // 2. BUDGET COMPARISON CHART (Bar)
+            let budgetChart = null;
+            const budgetChartData = @json($budgetChartData);
+            if (budgetChartData.categories && budgetChartData.categories.length > 0) {
+                const budgetOptions = {
+                    series: [
+                        { name: 'Spent', data: budgetChartData.actuals },
+                        { name: 'Limit', data: budgetChartData.limits }
+                    ],
+                    chart: {
+                        type: 'bar',
+                        height: 220,
+                        toolbar: { show: false },
+                        background: 'transparent',
+                        foreColor: 'var(--text-secondary)',
+                        fontFamily: 'Space Grotesk, sans-serif'
+                    },
+                    colors: ['#8b5cf6', '#4b5563'], // Violet (Spent), Slate Grey (Limit)
+                    plotOptions: {
+                        bar: {
+                            horizontal: true,
+                            dataLabels: { position: 'top' },
+                            barHeight: '60%',
+                            borderRadius: 4
+                        }
+                    },
+                    dataLabels: {
+                        enabled: true,
+                        formatter: function (val) {
+                            return val.toLocaleString() + ' GHS';
+                        },
+                        style: { fontSize: '9px', colors: ['var(--text)'] }
+                    },
+                    stroke: { show: true, width: 1, colors: ['transparent'] },
+                    grid: {
+                        borderColor: 'var(--border)',
+                        strokeDashArray: 4
+                    },
+                    xaxis: {
+                        categories: budgetChartData.categories,
+                        labels: { show: true, style: { fontSize: '9px', fontWeight: 600 } }
+                    },
+                    yaxis: {
+                        labels: { show: true, style: { fontSize: '10px', fontWeight: 600 } }
+                    },
+                    theme: { mode: getThemeMode() },
+                    tooltip: {
+                        theme: getThemeMode(),
+                        y: {
+                            formatter: function (val) {
+                                return val.toLocaleString() + ' GHS';
+                            }
+                        }
+                    },
+                    legend: {
+                        position: 'top',
+                        horizontalAlign: 'right',
+                        fontSize: '10px',
+                        fontWeight: 600,
+                        labels: { colors: 'var(--text)' }
+                    }
+                };
+                budgetChart = new ApexCharts(document.querySelector("#budget-chart"), budgetOptions);
+                budgetChart.render();
+            }
+
+            // 3. PUBLISH QUEUE MIX (Donut)
+            let publishMixChart = null;
+            const publicationMixData = @json($publicationMixData);
+            if (publicationMixData.series && publicationMixData.series.length > 0) {
+                const publishMixOptions = {
+                    series: publicationMixData.series,
+                    labels: publicationMixData.labels,
+                    chart: {
+                        type: 'donut',
+                        height: 220,
+                        background: 'transparent',
+                        foreColor: 'var(--text-secondary)',
+                        fontFamily: 'Space Grotesk, sans-serif'
+                    },
+                    colors: ['#0ea5e9', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'], // Sky, Emerald, Amber, Violet, Pink
+                    dataLabels: { enabled: false },
+                    legend: {
+                        position: 'bottom',
+                        fontSize: '10px',
+                        fontWeight: 600,
+                        labels: { colors: 'var(--text)' }
+                    },
+                    stroke: { colors: ['var(--surface)'] },
+                    plotOptions: {
+                        pie: {
+                            donut: {
+                                size: '65%',
+                                labels: {
+                                    show: true,
+                                    name: { show: true, fontSize: '12px', fontWeight: 600, color: 'var(--text)' },
+                                    value: { show: true, fontSize: '14px', fontWeight: 700, color: 'var(--text)', formatter: (v) => v },
+                                    total: {
+                                        show: true,
+                                        label: 'Total Jobs',
+                                        fontSize: '10px',
+                                        fontWeight: 600,
+                                        color: 'var(--text-secondary)',
+                                        formatter: function (w) {
+                                            return w.globals.seriesTotals.reduce((a, b) => a + b, 0);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    theme: { mode: getThemeMode() },
+                    tooltip: {
+                        theme: getThemeMode()
+                    }
+                };
+                publishMixChart = new ApexCharts(document.querySelector("#publish-mix-chart"), publishMixOptions);
+                publishMixChart.render();
+            }
+
+            // Listen to Theme Toggles dynamically
+            window.addEventListener('theme-changed', () => {
+                const isDark = document.documentElement.classList.contains('dark');
+                const themeMode = isDark ? 'dark' : 'light';
+                
+                cashFlowChart.updateOptions({
+                    theme: { mode: themeMode },
+                    tooltip: { theme: themeMode }
+                });
+
+                if (budgetChart) {
+                    budgetChart.updateOptions({
+                        theme: { mode: themeMode },
+                        tooltip: { theme: themeMode }
+                    });
+                }
+
+                if (publishMixChart) {
+                    publishMixChart.updateOptions({
+                        theme: { mode: themeMode },
+                        tooltip: { theme: themeMode }
+                    });
+                }
+            });
+        });
+    </script>
 </x-ui.page>

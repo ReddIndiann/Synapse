@@ -73,7 +73,7 @@ Parse the user's input: \"{$prompt}\"
 You must output ONLY a valid JSON object. Do not wrap in markdown or any other tags.
 The JSON format must be:
 {
-  \"intent\": \"schedule_task\" | \"record_transaction\" | \"publish_media\" | \"unknown\",
+  \"intent\": \"schedule_task\" | \"record_transaction\" | \"publish_media\" | \"query_tasks\" | \"query_finances\" | \"query_queue\" | \"unknown\",
   \"parameters\": { ... }
 }
 
@@ -89,7 +89,7 @@ Guidelines for parameters based on intent:
 - \"type\": \"income\" | \"expense\"
 - \"amount\": float (must be greater than 0)
 - \"currency\": string (3 letters e.g., \"GHS\", \"USD\", \"EUR\", \"GBP\". Default \"GHS\")
-- \"category\": string (suitable ledger category e.g., \"Rent Expense\", \"Utilities\", \"Marketing\", \"Consulting Revenue\", \"Product Sales\")
+- \"category\": string (suitable ledger category e.g., \"Rent Expense\", \"Saas Subscriptions\", \"Marketing\", \"Consulting Revenue\", \"Product Sales\")
 - \"description\": string or null
 - \"occurred_at\": string (format: \"YYYY-MM-DD\", default to today)
 
@@ -98,6 +98,15 @@ Guidelines for parameters based on intent:
 - \"channel\": \"youtube\" | \"spotify\" | \"audiomack\" | \"instagram\" | \"linkedin\" | \"facebook\" | \"website\"
 - \"caption\": string or null (accompanying description or notes)
 - \"scheduled_at\": string (format: \"YYYY-MM-DD HH:MM:SS\") or null for immediate publishing.
+
+4. query_tasks:
+- \"status\": \"pending\" | \"in_progress\" | \"completed\" | \"cancelled\" | \"all\" (default \"all\")
+
+5. query_finances:
+- \"query_type\": \"balance\" | \"total_income\" | \"total_expense\" | \"budget_status\" | \"list\" (default \"balance\")
+
+6. query_queue:
+- \"status\": \"pending\" | \"scheduled\" | \"published\" | \"failed\" | \"all\" (default \"all\")
 
 Return 'unknown' intent if you cannot map the input to any of the above.";
     }
@@ -109,7 +118,60 @@ Return 'unknown' intent if you cannot map the input to any of the above.";
     {
         $promptLower = strtolower($prompt);
 
-        // 1. Check for record_transaction
+        // Check if query request
+        $isQuery = Str::contains($promptLower, ['what', 'how', 'show', 'list', 'view', 'summary', 'status', 'report', 'am i', 'find', 'get', 'check', 'current', 'active', 'recent', 'total', 'have i']);
+
+        if ($isQuery) {
+            // 1. Check for query_tasks
+            if (Str::contains($promptLower, ['task', 'tasks', 'todo', 'todos', 'checklist', 'schedule', 'scheduled'])) {
+                $status = 'all';
+                if (Str::contains($promptLower, 'completed')) $status = 'completed';
+                elseif (Str::contains($promptLower, 'cancelled')) $status = 'cancelled';
+                elseif (Str::contains($promptLower, 'pending')) $status = 'pending';
+                elseif (Str::contains($promptLower, ['in progress', 'active'])) $status = 'in_progress';
+
+                return [
+                    'intent' => 'query_tasks',
+                    'parameters' => [
+                        'status' => $status
+                    ]
+                ];
+            }
+
+            // 2. Check for query_finances
+            if (Str::contains($promptLower, ['finance', 'finances', 'spent', 'spending', 'income', 'expense', 'expenses', 'balance', 'budget', 'budgets', 'p&l', 'profit', 'loss', 'ledger', 'cost'])) {
+                $queryType = 'balance';
+                if (Str::contains($promptLower, ['budget', 'budgets'])) $queryType = 'budget_status';
+                elseif (Str::contains($promptLower, ['income'])) $queryType = 'total_income';
+                elseif (Str::contains($promptLower, ['spent', 'spending', 'expense', 'expenses', 'cost'])) $queryType = 'total_expense';
+                elseif (Str::contains($promptLower, ['list', 'recent', 'transactions'])) $queryType = 'list';
+
+                return [
+                    'intent' => 'query_finances',
+                    'parameters' => [
+                        'query_type' => $queryType
+                    ]
+                ];
+            }
+
+            // 3. Check for query_queue
+            if (Str::contains($promptLower, ['publish', 'queue', 'queued', 'distribute', 'distribution', 'channel', 'channels', 'upload', 'uploads', 'youtube', 'spotify', 'audiomack', 'facebook'])) {
+                $status = 'all';
+                if (Str::contains($promptLower, 'published')) $status = 'published';
+                elseif (Str::contains($promptLower, 'failed')) $status = 'failed';
+                elseif (Str::contains($promptLower, 'pending')) $status = 'pending';
+                elseif (Str::contains($promptLower, 'scheduled')) $status = 'scheduled';
+
+                return [
+                    'intent' => 'query_queue',
+                    'parameters' => [
+                        'status' => $status
+                    ]
+                ];
+            }
+        }
+
+        // 1. Check for record_transaction (original logic follows)
         if (Str::contains($promptLower, ['spend', 'spent', 'spent ', 'log expense', 'record expense', 'paid', 'buy', 'bought', 'expense', 'income', 'receive', 'received', 'earned', 'got paid', 'log income'])) {
             $type = 'expense';
             if (Str::contains($promptLower, ['income', 'receive', 'received', 'earned', 'got paid', 'log income'])) {

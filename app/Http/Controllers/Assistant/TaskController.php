@@ -15,7 +15,7 @@ class TaskController extends Controller
         $tasks = Task::query()
             ->where('user_id', auth()->id())
             ->latest()
-            ->paginate(10);
+            ->get();
 
         return view('assistant.tasks.index', compact('tasks'));
     }
@@ -58,9 +58,24 @@ class TaskController extends Controller
         ]);
     }
 
-    public function update(Request $request, Task $task): RedirectResponse
+    public function update(Request $request, Task $task)
     {
         $this->authorizeTask($task);
+
+        if ($request->wantsJson()) {
+            $validated = $request->validate([
+                'status' => ['required', 'in:'.implode(',', Task::statuses())],
+            ]);
+
+            $task->status = $validated['status'];
+            $task->completed_at = $validated['status'] === 'completed' ? ($task->completed_at ?? now()) : null;
+            $task->save();
+
+            return response()->json([
+                'success' => true,
+                'task' => $task,
+            ]);
+        }
 
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],

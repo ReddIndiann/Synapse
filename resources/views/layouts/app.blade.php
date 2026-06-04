@@ -99,6 +99,7 @@
                     document.documentElement.classList.add('dark');
                     localStorage.theme = 'dark';
                 }
+                window.dispatchEvent(new Event('theme-changed'));
             }
         </script>
     </body>
