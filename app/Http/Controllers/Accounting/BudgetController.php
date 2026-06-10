@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Accounting;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Accounting\BudgetRequest;
 use App\Models\Budget;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class BudgetController extends Controller
@@ -24,25 +24,16 @@ class BudgetController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(BudgetRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'category' => ['required', 'string', 'max:100'],
-            'amount' => ['required', 'numeric', 'min:0.01'],
-            'period' => ['required', 'in:'.implode(',', Budget::periods())],
-            'starts_at' => ['nullable', 'date'],
-            'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
-        ]);
-
-        Budget::create([...$validated, 'user_id' => auth()->id()]);
+        Budget::create([...$request->validated(), 'user_id' => auth()->id()]);
 
         return redirect()->route('accounting.budgets.index')->with('status', 'Budget created.');
     }
 
     public function edit(Budget $budget): View
     {
-        $this->authorizeBudget($budget);
+        $this->authorize('view', $budget);
 
         return view('accounting.budgets.edit', [
             'budget' => $budget,
@@ -50,34 +41,20 @@ class BudgetController extends Controller
         ]);
     }
 
-    public function update(Request $request, Budget $budget): RedirectResponse
+    public function update(BudgetRequest $request, Budget $budget): RedirectResponse
     {
-        $this->authorizeBudget($budget);
+        $this->authorize('update', $budget);
 
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'category' => ['required', 'string', 'max:100'],
-            'amount' => ['required', 'numeric', 'min:0.01'],
-            'period' => ['required', 'in:'.implode(',', Budget::periods())],
-            'starts_at' => ['nullable', 'date'],
-            'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
-        ]);
-
-        $budget->update($validated);
+        $budget->update($request->validated());
 
         return redirect()->route('accounting.budgets.index')->with('status', 'Budget updated.');
     }
 
     public function destroy(Budget $budget): RedirectResponse
     {
-        $this->authorizeBudget($budget);
+        $this->authorize('delete', $budget);
         $budget->delete();
 
         return redirect()->route('accounting.budgets.index')->with('status', 'Budget deleted.');
-    }
-
-    private function authorizeBudget(Budget $budget): void
-    {
-        abort_unless($budget->user_id === auth()->id(), 403);
     }
 }

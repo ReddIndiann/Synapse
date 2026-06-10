@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PublishJob extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'user_id',
         'media_asset_id',
@@ -15,6 +18,8 @@ class PublishJob extends Model
         'caption',
         'scheduled_at',
         'published_at',
+        'published_url',
+        'logs',
     ];
 
     protected function casts(): array
@@ -22,6 +27,7 @@ class PublishJob extends Model
         return [
             'scheduled_at' => 'datetime',
             'published_at' => 'datetime',
+            'logs' => 'array',
         ];
     }
 

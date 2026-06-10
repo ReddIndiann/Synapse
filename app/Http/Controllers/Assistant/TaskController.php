@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\Assistant;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Assistant\TaskRequest;
 use App\Models\Task;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 
 class TaskController extends Controller
@@ -28,20 +31,12 @@ class TaskController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(TaskRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'title' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'priority' => ['required', 'in:'.implode(',', Task::priorities())],
-            'status' => ['required', 'in:'.implode(',', Task::statuses())],
-            'due_at' => ['nullable', 'date'],
-        ]);
-
-        Task::create([
-            ...$validated,
+        $task = Task::create([
+            ...$request->validated(),
             'user_id' => auth()->id(),
-            'completed_at' => $validated['status'] === 'completed' ? now() : null,
+            'completed_at' => $request->validated('status') === 'completed' ? now() : null,
         ]);
 
         return redirect()->route('assistant.tasks.index')->with('status', 'Task created.');
@@ -49,7 +44,7 @@ class TaskController extends Controller
 
     public function edit(Task $task): View
     {
-        $this->authorizeTask($task);
+        $this->authorize('view', $task);
 
         return view('assistant.tasks.edit', [
             'task' => $task,
@@ -60,11 +55,11 @@ class TaskController extends Controller
 
     public function update(Request $request, Task $task)
     {
-        $this->authorizeTask($task);
+        $this->authorize('update', $task);
 
         if ($request->wantsJson()) {
             $validated = $request->validate([
-                'status' => ['required', 'in:'.implode(',', Task::statuses())],
+                'status' => ['required', 'in:' . implode(',', Task::statuses())],
             ]);
 
             $task->status = $validated['status'];
@@ -80,8 +75,8 @@ class TaskController extends Controller
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'priority' => ['required', 'in:'.implode(',', Task::priorities())],
-            'status' => ['required', 'in:'.implode(',', Task::statuses())],
+            'priority' => ['required', 'in:' . implode(',', Task::priorities())],
+            'status' => ['required', 'in:' . implode(',', Task::statuses())],
             'due_at' => ['nullable', 'date'],
         ]);
 
@@ -94,7 +89,7 @@ class TaskController extends Controller
 
     public function destroy(Task $task): RedirectResponse
     {
-        $this->authorizeTask($task);
+        $this->authorize('delete', $task);
         $task->delete();
 
         return redirect()->route('assistant.tasks.index')->with('status', 'Task deleted.');
@@ -112,7 +107,7 @@ class TaskController extends Controller
         $alerts = [];
 
         foreach ($tasks as $task) {
-            $dueAt = \Illuminate\Support\Carbon::parse($task->due_at);
+            $dueAt = Carbon::parse($task->due_at);
             $diffInSeconds = $dueAt->timestamp - time();
             $diffInMinutes = (int) ($diffInSeconds / 60);
 
@@ -129,7 +124,7 @@ class TaskController extends Controller
                 $timestamp = $dueAt->timestamp;
                 $cacheKey = "task_alert_shown_{$task->id}_{$threshold}_{$timestamp}";
 
-                if (!\Illuminate\Support\Facades\Cache::has($cacheKey)) {
+                if (!Cache::has($cacheKey)) {
                     $alerts[] = [
                         'id' => $task->id,
                         'title' => $task->title,
@@ -138,13 +133,13 @@ class TaskController extends Controller
                         'minutes_remaining' => $diffInMinutes,
                     ];
 
-                    \Illuminate\Support\Facades\Cache::put($cacheKey, true, now()->addHours(2));
+                    Cache::put($cacheKey, true, now()->addHours(2));
 
                     if ($threshold === '5m') {
-                        \Illuminate\Support\Facades\Cache::put("task_alert_shown_{$task->id}_30m_{$timestamp}", true, now()->addHours(2));
-                        \Illuminate\Support\Facades\Cache::put("task_alert_shown_{$task->id}_1h_{$timestamp}", true, now()->addHours(2));
+                        Cache::put("task_alert_shown_{$task->id}_30m_{$timestamp}", true, now()->addHours(2));
+                        Cache::put("task_alert_shown_{$task->id}_1h_{$timestamp}", true, now()->addHours(2));
                     } elseif ($threshold === '30m') {
-                        \Illuminate\Support\Facades\Cache::put("task_alert_shown_{$task->id}_1h_{$timestamp}", true, now()->addHours(2));
+                        Cache::put("task_alert_shown_{$task->id}_1h_{$timestamp}", true, now()->addHours(2));
                     }
                 }
             }
@@ -155,10 +150,10 @@ class TaskController extends Controller
 
     public function autoReschedule(Task $task)
     {
-        $this->authorizeTask($task);
+        $this->authorize('update', $task);
 
         $userId = auth()->id();
-        $dueAt = \Illuminate\Support\Carbon::parse($task->due_at ?: now());
+        $dueAt = Carbon::parse($task->due_at ?: now());
         
         $altSlot = $dueAt->copy()->addHour()->startOfMinute();
         while (Task::query()
@@ -183,7 +178,7 @@ class TaskController extends Controller
 
     public function cancelTask(Task $task)
     {
-        $this->authorizeTask($task);
+        $this->authorize('update', $task);
 
         $task->status = 'cancelled';
         $task->save();
@@ -197,13 +192,13 @@ class TaskController extends Controller
 
     public function rescheduleTo(Request $request, Task $task)
     {
-        $this->authorizeTask($task);
+        $this->authorize('update', $task);
 
         $validated = $request->validate([
             'due_at' => ['required', 'date', 'after:now'],
         ]);
 
-        $task->due_at = \Illuminate\Support\Carbon::parse($validated['due_at']);
+        $task->due_at = Carbon::parse($validated['due_at']);
         $task->status = 'pending';
         $task->save();
 
@@ -214,8 +209,4 @@ class TaskController extends Controller
         ]);
     }
 
-    private function authorizeTask(Task $task): void
-    {
-        abort_unless($task->user_id === auth()->id(), 403);
-    }
 }

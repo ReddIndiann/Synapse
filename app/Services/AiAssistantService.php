@@ -17,7 +17,7 @@ class AiAssistantService
      */
     public function parse(string $prompt, int $userId): array
     {
-        $apiKey = config('services.gemini.key') ?: env('GEMINI_API_KEY');
+        $apiKey = config('services.gemini.key');
         $nowStr = Carbon::now()->toDateTimeString();
 
         $result = null;
@@ -251,18 +251,55 @@ Return 'unknown' intent if you cannot map the input to any of the above.";
         elseif (Str::contains($promptLower, 'low')) $priority = 'low';
 
         $dueAt = null;
-        if (Str::contains($promptLower, 'tomorrow')) {
+        $title = $prompt;
+
+        // Strip scheduling prefixes to isolate the actual task title
+        $titleClean = preg_replace('/^(?:schedule|add|create|set|make|remind me to|remind me|i want to|i need to)\s+(?:(?:a|an|the)\s+)?(?:task|event|meeting|appointment)?\s*(?:for|to|about)?\s*/i', '', $prompt);
+        $titleClean = trim($titleClean);
+
+        // Parse time expressions
+        if (preg_match('/(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)/i', $promptLower, $tMatches)) {
+            $hour = (int) $tMatches[1];
+            $minute = !empty($tMatches[2]) ? (int) $tMatches[2] : 0;
+            $ampm = strtolower($tMatches[3]);
+
+            if ($ampm === 'pm' || $ampm === 'p.m.') {
+                if ($hour < 12) $hour += 12;
+            } elseif ($ampm === 'am' || $ampm === 'a.m.') {
+                if ($hour === 12) $hour = 0;
+            }
+
+            $date = Carbon::today();
+            if (Str::contains($promptLower, 'tomorrow')) {
+                $date = Carbon::tomorrow();
+            } elseif (preg_match('/\b(?:next\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i', $promptLower, $dMatches)) {
+                $date = Carbon::parse($dMatches[1]);
+            }
+
+            $dueAt = $date->copy()->setHour($hour)->setMinute($minute)->setSecond(0)->toDateTimeString();
+
+            // Remove time expression from title
+            $titleClean = preg_replace('/\b(?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)\b/i', '', $titleClean);
+        } elseif (Str::contains($promptLower, 'tomorrow')) {
             $dueAt = Carbon::tomorrow()->setHour(9)->setMinute(0)->toDateTimeString();
-        } elseif (Str::contains($promptLower, 'friday')) {
-            $dueAt = Carbon::parse('next friday')->setHour(10)->setMinute(0)->toDateTimeString();
+        } elseif (preg_match('/\b(?:next\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i', $promptLower, $dMatches)) {
+            $dueAt = Carbon::parse($dMatches[1])->setHour(10)->setMinute(0)->toDateTimeString();
         } elseif (preg_match('/(\d{4}-\d{2}-\d{2})/', $prompt, $dMatches)) {
             $dueAt = Carbon::parse($dMatches[1])->setHour(9)->setMinute(0)->toDateTimeString();
         }
 
+        // Clean up leftover scheduling verbs and filler from title
+        $titleClean = preg_replace('/\b(today|tomorrow|next|at|by|before|after|this|coming)\b/i', '', $titleClean);
+        $titleClean = preg_replace('/\s{2,}/', ' ', $titleClean);
+        $titleClean = trim($titleClean);
+
+        // If cleaning removed everything, fall back to original
+        $title = $titleClean ?: $prompt;
+
         return [
             'intent' => 'schedule_task',
             'parameters' => [
-                'title' => Str::limit($prompt, 80),
+                'title' => Str::limit($title, 80),
                 'description' => $prompt,
                 'due_at' => $dueAt,
                 'priority' => $priority,

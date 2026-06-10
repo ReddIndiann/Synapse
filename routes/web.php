@@ -16,7 +16,9 @@ use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return view('welcome');
+    return auth()->check()
+        ? redirect()->route('dashboard')
+        : redirect()->route('login');
 });
 
 Route::get('/dashboard', DashboardController::class)->middleware(['auth', 'verified'])->name('dashboard');
@@ -34,13 +36,13 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [NotificationController::class, 'index'])->name('index');
         Route::post('/{id}/read', [NotificationController::class, 'markAsRead'])->name('read');
         Route::post('/read-all', [NotificationController::class, 'markAllAsRead'])->name('read-all');
-        Route::delete('/{id}', [NotificationController::class, 'destroy'])->name('destroy');
         Route::delete('/clear-all', [NotificationController::class, 'clearAll'])->name('clear-all');
+        Route::delete('/{id}', [NotificationController::class, 'destroy'])->name('destroy');
     });
 
     Route::prefix('assistant')->name('assistant.')->group(function () {
         Route::get('/chat', [AssistantController::class, 'index'])->name('chat');
-        Route::post('/chat', [AssistantController::class, 'store'])->name('chat.store');
+        Route::post('/chat', [AssistantController::class, 'store'])->name('chat.store')->middleware('throttle:30,1');
         Route::post('/chat/clear', [AssistantController::class, 'clearChat'])->name('chat.clear');
         Route::post('/chat/resolve/{message}', [AssistantController::class, 'resolveConflict'])->name('chat.resolve');
         

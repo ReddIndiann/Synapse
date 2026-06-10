@@ -3,13 +3,13 @@
 namespace App\Http\Controllers\Distribution;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Distribution\PublishJobRequest;
 use App\Models\DistributionChannel;
 use App\Models\MediaAsset;
 use App\Models\PublishJob;
 use App\Jobs\ProcessPublishJob;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class PublishController extends Controller
@@ -33,22 +33,15 @@ class PublishController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(PublishJobRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'media_asset_id' => ['required', 'exists:media_assets,id'],
-            'distribution_channel_id' => ['required', 'exists:distribution_channels,id'],
-            'caption' => ['nullable', 'string', 'max:2000'],
-            'scheduled_at' => ['nullable', 'date'],
-        ]);
+        $asset = MediaAsset::query()->findOrFail($request->validated('media_asset_id'));
+        $this->authorize('view', $asset);
 
-        $asset = MediaAsset::query()->findOrFail($validated['media_asset_id']);
-        abort_unless($asset->user_id === auth()->id(), 403);
-
-        $status = ! empty($validated['scheduled_at']) ? 'scheduled' : 'pending';
+        $status = !empty($request->validated('scheduled_at')) ? 'scheduled' : 'pending';
 
         $job = PublishJob::create([
-            ...$validated,
+            ...$request->validated(),
             'user_id' => auth()->id(),
             'status' => $status,
         ]);
@@ -67,7 +60,7 @@ class PublishController extends Controller
      */
     public function monitor(PublishJob $publish): View
     {
-        abort_unless($publish->user_id === auth()->id(), 403);
+        $this->authorize('view', $publish);
         $publish->load(['mediaAsset', 'distributionChannel']);
         
         return view('distribution.publish.monitor', [
@@ -80,7 +73,7 @@ class PublishController extends Controller
      */
     public function statusJson(PublishJob $publish): JsonResponse
     {
-        abort_unless($publish->user_id === auth()->id(), 403);
+        $this->authorize('view', $publish);
         
         return response()->json([
             'status' => $publish->status,
@@ -92,7 +85,7 @@ class PublishController extends Controller
 
     public function destroy(PublishJob $publish): RedirectResponse
     {
-        abort_unless($publish->user_id === auth()->id(), 403);
+        $this->authorize('delete', $publish);
         $publish->delete();
 
         return redirect()->route('distribution.publish.index')->with('status', 'Publish job removed.');

@@ -3,19 +3,21 @@
 namespace App\Http\Controllers\Assistant;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Assistant\AssistantChatRequest;
+use App\Jobs\ProcessPublishJob;
 use App\Models\AssistantMessage;
-use App\Models\Task;
-use App\Models\Transaction;
+use App\Models\Budget;
+use App\Models\DistributionChannel;
 use App\Models\MediaAsset;
 use App\Models\PublishJob;
-use App\Models\DistributionChannel;
-use App\Services\AiAssistantService;
+use App\Models\Task;
+use App\Models\Transaction;
 use App\Services\AccountingLedgerService;
+use App\Services\AiAssistantService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\View\View;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Str;
+use Illuminate\View\View;
 
 class AssistantController extends Controller
 {
@@ -57,14 +59,10 @@ class AssistantController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(AssistantChatRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'prompt' => ['required', 'string', 'max:2000'],
-        ]);
-
         $userId = auth()->id();
-        $prompt = $validated['prompt'];
+        $prompt = $request->validated('prompt');
 
         // 1. Save user message
         AssistantMessage::create([
@@ -188,7 +186,7 @@ class AssistantController extends Controller
 
                 // Dispatch simulation queue job
                 if ($publishJob->status === 'pending') {
-                    \App\Jobs\ProcessPublishJob::dispatch($publishJob);
+                    ProcessPublishJob::dispatch($publishJob);
                 }
 
                 $schedStr = $publishJob->scheduled_at ? " scheduled for " . $publishJob->scheduled_at->format('M j, Y \a\t h:i A') : " immediate dispatch";
@@ -232,7 +230,7 @@ class AssistantController extends Controller
                 $queryType = $params['query_type'] ?? 'balance';
                 
                 if ($queryType === 'budget_status') {
-                    $budgets = \App\Models\Budget::where('user_id', $userId)->get();
+                    $budgets = Budget::where('user_id', $userId)->get();
                     if ($budgets->isEmpty()) {
                         $msg = "You don't have any budgets set up currently. You can configure one in the Budgets Tracker.";
                     } else {
@@ -353,12 +351,13 @@ class AssistantController extends Controller
 
         $action = $request->input('action');
         $params = $message->metadata['task_params'];
+        $alternativeDueAt = $message->metadata['alternative_due_at'] ?? null;
 
         // Clean up action metadata
         $message->update(['metadata' => null]);
 
         if ($action === 'reschedule') {
-            $newDue = Carbon::parse($params['alternative_due_at'] ?? $message->metadata['alternative_due_at']);
+            $newDue = Carbon::parse($alternativeDueAt);
             Task::create([
                 'user_id' => $userId,
                 'title' => $params['title'],

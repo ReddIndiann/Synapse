@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Accounting;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Accounting\TransactionRequest;
+use App\Models\Budget;
 use App\Models\Transaction;
+use App\Notifications\BudgetBreachedNotification;
 use App\Services\AccountingLedgerService;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\View\View;
 
 class TransactionController extends Controller
@@ -20,13 +23,15 @@ class TransactionController extends Controller
 
     public function index(): View
     {
+        $userId = auth()->id();
+
         $transactions = Transaction::query()
-            ->where('user_id', auth()->id())
+            ->where('user_id', $userId)
             ->latest('occurred_at')
             ->paginate(10);
 
-        $income = Transaction::query()->where('user_id', auth()->id())->where('type', 'income')->sum('amount');
-        $expense = Transaction::query()->where('user_id', auth()->id())->where('type', 'expense')->sum('amount');
+        $income = Transaction::query()->where('user_id', $userId)->where('type', 'income')->sum('amount');
+        $expense = Transaction::query()->where('user_id', $userId)->where('type', 'expense')->sum('amount');
 
         return view('accounting.transactions.index', compact('transactions', 'income', 'expense'));
     }
@@ -38,29 +43,14 @@ class TransactionController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(TransactionRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'type' => ['required', 'in:'.implode(',', Transaction::types())],
-            'amount' => ['required', 'numeric', 'min:0.01'],
-            'currency' => ['required', 'string', 'size:3'],
-            'category' => ['required', 'string', 'max:100'],
-            'description' => ['nullable', 'string', 'max:255'],
-            'occurred_at' => ['required', 'date'],
-            'reference' => ['nullable', 'string', 'max:100'],
-            'payment_method' => ['required', 'string', 'in:Cash,Bank,Mobile Money'],
-            'exchange_rate' => ['required', 'numeric', 'min:0.000001'],
-        ]);
-
         $transaction = Transaction::create([
-            ...$validated,
-            'user_id' => auth()->id()
+            ...$request->validated(),
+            'user_id' => auth()->id(),
         ]);
 
-        // Sync with double entry ledger
         $this->ledgerService->recordTransaction($transaction);
-
-        // Check for budget breaches
         $this->checkBudgetBreached($transaction);
 
         return redirect()->route('accounting.transactions.index')->with('status', 'Transaction recorded.');
@@ -68,7 +58,7 @@ class TransactionController extends Controller
 
     public function edit(Transaction $transaction): View
     {
-        $this->authorizeTransaction($transaction);
+        $this->authorize('view', $transaction);
 
         return view('accounting.transactions.edit', [
             'transaction' => $transaction,
@@ -76,28 +66,13 @@ class TransactionController extends Controller
         ]);
     }
 
-    public function update(Request $request, Transaction $transaction): RedirectResponse
+    public function update(TransactionRequest $request, Transaction $transaction): RedirectResponse
     {
-        $this->authorizeTransaction($transaction);
+        $this->authorize('update', $transaction);
 
-        $validated = $request->validate([
-            'type' => ['required', 'in:'.implode(',', Transaction::types())],
-            'amount' => ['required', 'numeric', 'min:0.01'],
-            'currency' => ['required', 'string', 'size:3'],
-            'category' => ['required', 'string', 'max:100'],
-            'description' => ['nullable', 'string', 'max:255'],
-            'occurred_at' => ['required', 'date'],
-            'reference' => ['nullable', 'string', 'max:100'],
-            'payment_method' => ['required', 'string', 'in:Cash,Bank,Mobile Money'],
-            'exchange_rate' => ['required', 'numeric', 'min:0.000001'],
-        ]);
+        $transaction->update($request->validated());
 
-        $transaction->update($validated);
-
-        // Sync with double entry ledger
         $this->ledgerService->recordTransaction($transaction);
-
-        // Check for budget breaches
         $this->checkBudgetBreached($transaction);
 
         return redirect()->route('accounting.transactions.index')->with('status', 'Transaction updated.');
@@ -105,19 +80,12 @@ class TransactionController extends Controller
 
     public function destroy(Transaction $transaction): RedirectResponse
     {
-        $this->authorizeTransaction($transaction);
+        $this->authorize('delete', $transaction);
 
-        // Delete ledger records first
         $this->ledgerService->removeTransaction($transaction);
-        
         $transaction->delete();
 
         return redirect()->route('accounting.transactions.index')->with('status', 'Transaction deleted.');
-    }
-
-    private function authorizeTransaction(Transaction $transaction): void
-    {
-        abort_unless($transaction->user_id === auth()->id(), 403);
     }
 
     private function checkBudgetBreached(Transaction $transaction): void
@@ -126,43 +94,44 @@ class TransactionController extends Controller
             return;
         }
 
-        $budget = \App\Models\Budget::where('user_id', $transaction->user_id)
+        $budget = Budget::where('user_id', $transaction->user_id)
             ->where('category', $transaction->category)
             ->first();
 
-        if ($budget && $budget->amount > 0) {
-            $occurredAt = \Illuminate\Support\Carbon::parse($transaction->occurred_at);
-            
-            $totalSpent = Transaction::where('user_id', $transaction->user_id)
-                ->where('category', $transaction->category)
-                ->where('type', 'expense')
-                ->whereMonth('occurred_at', $occurredAt->month)
-                ->whereYear('occurred_at', $occurredAt->year)
-                ->sum('amount');
+        if (!$budget || $budget->amount <= 0) {
+            return;
+        }
 
-            $level = null;
-            if ($totalSpent > $budget->amount) {
-                $level = 'exceeded';
-            } elseif ($totalSpent >= $budget->amount * 0.9) {
-                $level = 'warning_90';
-            } elseif ($totalSpent >= $budget->amount * 0.8) {
-                $level = 'warning_80';
-            }
+        $occurredAt = Carbon::parse($transaction->occurred_at);
 
-            if ($level) {
-                // Check if user was already notified for this budget level in this month
-                $notified = $transaction->user->notifications()
-                    ->where('type', 'App\Notifications\BudgetBreachedNotification')
-                    ->where('data->budget_id', $budget->id)
-                    ->where('data->level', $level)
-                    ->whereMonth('created_at', $occurredAt->month)
-                    ->whereYear('created_at', $occurredAt->year)
-                    ->exists();
+        $totalSpent = Transaction::where('user_id', $transaction->user_id)
+            ->where('category', $transaction->category)
+            ->where('type', 'expense')
+            ->whereMonth('occurred_at', $occurredAt->month)
+            ->whereYear('occurred_at', $occurredAt->year)
+            ->sum('amount');
 
-                if (!$notified) {
-                    $transaction->user->notify(new \App\Notifications\BudgetBreachedNotification($budget, $totalSpent, $level));
-                }
-            }
+        $level = match (true) {
+            $totalSpent > $budget->amount => 'exceeded',
+            $totalSpent >= $budget->amount * 0.9 => 'warning_90',
+            $totalSpent >= $budget->amount * 0.8 => 'warning_80',
+            default => null,
+        };
+
+        if (!$level) {
+            return;
+        }
+
+        $notified = $transaction->user->notifications()
+            ->where('type', BudgetBreachedNotification::class)
+            ->where('data->budget_id', $budget->id)
+            ->where('data->level', $level)
+            ->whereMonth('created_at', $occurredAt->month)
+            ->whereYear('created_at', $occurredAt->year)
+            ->exists();
+
+        if (!$notified) {
+            $transaction->user->notify(new BudgetBreachedNotification($budget, $totalSpent, $level));
         }
     }
 }

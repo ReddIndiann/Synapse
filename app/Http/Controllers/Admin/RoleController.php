@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
+use App\Http\Requests\Admin\RoleRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 use Spatie\Permission\Models\Role;
@@ -22,13 +22,9 @@ class RoleController extends Controller
         return view('admin.roles.create');
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(RoleRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255', 'unique:roles,name'],
-        ]);
-
-        Role::create(['name' => $validated['name']]);
+        Role::create(['name' => $request->validated('name')]);
 
         return redirect()->route('admin.roles.index')->with('status', 'Role created successfully.');
     }
@@ -38,13 +34,9 @@ class RoleController extends Controller
         return view('admin.roles.edit', compact('role'));
     }
 
-    public function update(Request $request, Role $role): RedirectResponse
+    public function update(RoleRequest $request, Role $role): RedirectResponse
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255', 'unique:roles,name,'.$role->id],
-        ]);
-
-        $role->update(['name' => $validated['name']]);
+        $role->update(['name' => $request->validated('name')]);
 
         return redirect()->route('admin.roles.index')->with('status', 'Role updated successfully.');
     }
