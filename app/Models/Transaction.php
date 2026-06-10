@@ -27,7 +27,7 @@ class Transaction extends Model
     {
         return [
             'amount' => 'decimal:2',
-            'occurred_at' => 'date',
+            'occurred_at' => 'datetime',
             'exchange_rate' => 'decimal:6',
         ];
     }

@@ -9,6 +9,7 @@ use App\Models\Transaction;
 use App\Notifications\BudgetBreachedNotification;
 use App\Services\AccountingLedgerService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\View\View;
 
@@ -21,14 +22,26 @@ class TransactionController extends Controller
         $this->ledgerService = $ledgerService;
     }
 
-    public function index(): View
+    public function index(Request $request): View
     {
         $userId = auth()->id();
 
-        $transactions = Transaction::query()
-            ->where('user_id', $userId)
-            ->latest('occurred_at')
-            ->paginate(10);
+        $query = Transaction::query()->where('user_id', $userId);
+
+        if ($search = $request->get('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('category', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%")
+                  ->orWhere('reference', 'like', "%{$search}%")
+                  ->orWhere('payment_method', 'like', "%{$search}%");
+            });
+        }
+
+        if ($type = $request->get('type')) {
+            $query->where('type', $type);
+        }
+
+        $transactions = $query->latest('occurred_at')->paginate(10);
 
         $income = Transaction::query()->where('user_id', $userId)->where('type', 'income')->sum('amount');
         $expense = Transaction::query()->where('user_id', $userId)->where('type', 'expense')->sum('amount');

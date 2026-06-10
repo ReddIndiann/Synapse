@@ -7,6 +7,24 @@
     <div x-data="taskManager">
         <x-slot name="actions">
             <div class="flex items-center gap-3">
+                <form method="GET" class="flex items-center gap-2">
+                    <input type="text" name="search" placeholder="Search tasks..." value="{{ request('search') }}"
+                           class="px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-xs focus:ring-2 focus:ring-purple-500/50 outline-none w-40">
+                    <select name="status" class="px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-xs focus:ring-2 focus:ring-purple-500/50 outline-none">
+                        <option value="">All status</option>
+                        <option value="pending" {{ request('status') === 'pending' ? 'selected' : '' }}>Pending</option>
+                        <option value="in_progress" {{ request('status') === 'in_progress' ? 'selected' : '' }}>In Progress</option>
+                        <option value="completed" {{ request('status') === 'completed' ? 'selected' : '' }}>Completed</option>
+                        <option value="cancelled" {{ request('status') === 'cancelled' ? 'selected' : '' }}>Cancelled</option>
+                    </select>
+                    <select name="priority" class="px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-xs focus:ring-2 focus:ring-purple-500/50 outline-none">
+                        <option value="">All priority</option>
+                        <option value="high" {{ request('priority') === 'high' ? 'selected' : '' }}>High</option>
+                        <option value="medium" {{ request('priority') === 'medium' ? 'selected' : '' }}>Medium</option>
+                        <option value="low" {{ request('priority') === 'low' ? 'selected' : '' }}>Low</option>
+                    </select>
+                    <x-ui.button type="submit" variant="secondary" size="sm">Filter</x-ui.button>
+                </form>
                 <!-- View switcher buttons -->
                 <div class="flex bg-[var(--bg2)] border border-[var(--border)] p-1 rounded-xl gap-1.5 shadow-sm">
                     <button 

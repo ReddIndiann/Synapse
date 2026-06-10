@@ -55,6 +55,15 @@
         <div class="aur aur-a top-[-200px] left-[-200px]"></div>
         <div class="aur aur-b bottom-[-200px] right-[-200px]"></div>
         <div class="min-h-screen flex flex-col relative z-10">
+            @if(session()->has('superadmin_original'))
+                <div class="bg-amber-500/10 border-b border-amber-500/30 px-5 py-2 text-xs font-semibold text-amber-400 flex items-center justify-between">
+                    <span>You are impersonating <strong>{{ Auth::user()->name }}</strong></span>
+                    <form method="POST" action="{{ route('superadmin.users.leave-impersonation') }}" class="inline">
+                        @csrf
+                        <button type="submit" class="underline hover:text-amber-300">Leave impersonation</button>
+                    </form>
+                </div>
+            @endif
             <!-- Sidebar -->
             @include('layouts.navigation')
 

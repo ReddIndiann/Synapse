@@ -81,4 +81,35 @@ Route::middleware(['auth', 'role:admin'])->get('/ui-kit', function () {
     return view('ui-kit');
 })->name('ui-kit');
 
+// SuperAdmin Portal — full access to all accounts, features, and system
+Route::middleware(['auth', 'role:superadmin'])->prefix('superadmin')->name('superadmin.')->group(function () {
+    Route::get('/', App\Http\Controllers\SuperAdmin\DashboardController::class)->name('dashboard');
+
+    Route::get('/users', [App\Http\Controllers\SuperAdmin\UserController::class, 'index'])->name('users.index');
+    Route::get('/users/create', [App\Http\Controllers\SuperAdmin\UserController::class, 'create'])->name('users.create');
+    Route::post('/users', [App\Http\Controllers\SuperAdmin\UserController::class, 'store'])->name('users.store');
+    Route::get('/users/{user}', [App\Http\Controllers\SuperAdmin\UserController::class, 'show'])->name('users.show');
+    Route::get('/users/{user}/edit', [App\Http\Controllers\SuperAdmin\UserController::class, 'edit'])->name('users.edit');
+    Route::put('/users/{user}', [App\Http\Controllers\SuperAdmin\UserController::class, 'update'])->name('users.update');
+    Route::delete('/users/{user}', [App\Http\Controllers\SuperAdmin\UserController::class, 'destroy'])->name('users.destroy');
+    Route::post('/users/{user}/reset-password', [App\Http\Controllers\SuperAdmin\UserController::class, 'resetPassword'])->name('users.reset-password');
+    Route::post('/users/{user}/impersonate', [App\Http\Controllers\SuperAdmin\UserController::class, 'impersonate'])->name('users.impersonate');
+    Route::post('/users/leave-impersonation', [App\Http\Controllers\SuperAdmin\UserController::class, 'leaveImpersonation'])->name('users.leave-impersonation');
+
+    Route::get('/apis', [App\Http\Controllers\SuperAdmin\ApiController::class, 'index'])->name('apis.index');
+    Route::get('/apis/test/{provider}', [App\Http\Controllers\SuperAdmin\ApiController::class, 'test'])->name('apis.test');
+
+    Route::get('/services', [App\Http\Controllers\SuperAdmin\ServiceController::class, 'index'])->name('services.index');
+    Route::post('/services/clear-cache', [App\Http\Controllers\SuperAdmin\ServiceController::class, 'clearCache'])->name('services.clear-cache');
+    Route::post('/services/optimize', [App\Http\Controllers\SuperAdmin\ServiceController::class, 'optimize'])->name('services.optimize');
+    Route::post('/services/retry-failed-jobs', [App\Http\Controllers\SuperAdmin\ServiceController::class, 'retryFailedJobs'])->name('services.retry-failed-jobs');
+    Route::post('/services/purge-failed-jobs', [App\Http\Controllers\SuperAdmin\ServiceController::class, 'purgeFailedJobs'])->name('services.purge-failed-jobs');
+
+    Route::get('/training', [App\Http\Controllers\SuperAdmin\TrainingController::class, 'index'])->name('training.index');
+    Route::post('/training/export', [App\Http\Controllers\SuperAdmin\TrainingController::class, 'export'])->name('training.export');
+
+    Route::get('/logs', [App\Http\Controllers\SuperAdmin\LogController::class, 'index'])->name('logs.index');
+    Route::post('/logs/clear', [App\Http\Controllers\SuperAdmin\LogController::class, 'clear'])->name('logs.clear');
+});
+
 require __DIR__.'/auth.php';

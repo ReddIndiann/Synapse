@@ -1,4 +1,7 @@
 <x-ui.page :title="__('Edit User')" maxWidth="3xl">
+    <x-slot name="actions">
+        <x-ui.button :href="route('admin.users.index')" variant="secondary" size="sm">&larr; Back to Users</x-ui.button>
+    </x-slot>
     <x-ui.form-card title="User details" description="Update profile and role assignments.">
         @include('admin.users.partials.form', [
             'action' => route('admin.users.update', $user),

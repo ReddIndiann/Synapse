@@ -12,6 +12,7 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $adminRole = Role::firstOrCreate(['name' => 'admin']);
+        Role::firstOrCreate(['name' => 'superadmin']);
         Role::firstOrCreate(['name' => 'manager']);
         Role::firstOrCreate(['name' => 'staff']);
 
@@ -27,6 +28,7 @@ class DatabaseSeeder extends Seeder
         );
 
         $admin->assignRole($adminRole);
+        $admin->assignRole('superadmin');
 
         $channels = [
             ['name' => 'YouTube', 'slug' => 'youtube'],

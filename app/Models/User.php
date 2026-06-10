@@ -43,6 +43,11 @@ class User extends Authenticatable
         return $this->hasMany(PublishJob::class);
     }
 
+    public function assistantMessages(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(AssistantMessage::class);
+    }
+
     /**
      * Get the attributes that should be cast.
      *

@@ -1,5 +1,15 @@
 <x-ui.page title="Transactions" description="Double-entry financial ledger records.">
     <x-slot name="actions">
+        <form method="GET" class="flex items-center gap-2">
+            <input type="text" name="search" placeholder="Search category, description..." value="{{ request('search') }}"
+                   class="px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-xs focus:ring-2 focus:ring-purple-500/50 outline-none w-48">
+            <select name="type" class="px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-xs focus:ring-2 focus:ring-purple-500/50 outline-none">
+                <option value="">All types</option>
+                <option value="income" {{ request('type') === 'income' ? 'selected' : '' }}>Income</option>
+                <option value="expense" {{ request('type') === 'expense' ? 'selected' : '' }}>Expense</option>
+            </select>
+            <x-ui.button type="submit" variant="secondary" size="sm">Filter</x-ui.button>
+        </form>
         <x-ui.button :href="route('accounting.transactions.create')" variant="primary" size="sm">New Transaction</x-ui.button>
     </x-slot>
 

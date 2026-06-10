@@ -1,5 +1,10 @@
 <x-ui.page title="Budgets" description="Plan and track financial spending limits.">
     <x-slot name="actions">
+        <form method="GET" class="flex items-center gap-2">
+            <input type="text" name="search" placeholder="Search name, category..." value="{{ request('search') }}"
+                   class="px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-xs focus:ring-2 focus:ring-purple-500/50 outline-none w-48">
+            <x-ui.button type="submit" variant="secondary" size="sm">Filter</x-ui.button>
+        </form>
         <x-ui.button :href="route('accounting.budgets.create')" variant="primary" size="sm">New Budget</x-ui.button>
     </x-slot>
 

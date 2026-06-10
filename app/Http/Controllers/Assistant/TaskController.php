@@ -13,12 +13,26 @@ use Illuminate\View\View;
 
 class TaskController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
-        $tasks = Task::query()
-            ->where('user_id', auth()->id())
-            ->latest()
-            ->get();
+        $query = Task::query()->where('user_id', auth()->id());
+
+        if ($search = $request->get('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+
+        if ($status = $request->get('status')) {
+            $query->where('status', $status);
+        }
+
+        if ($priority = $request->get('priority')) {
+            $query->where('priority', $priority);
+        }
+
+        $tasks = $query->latest()->get();
 
         return view('assistant.tasks.index', compact('tasks'));
     }

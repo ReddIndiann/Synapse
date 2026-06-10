@@ -48,6 +48,6 @@ class PublishJob extends Model
 
     public static function statuses(): array
     {
-        return ['pending', 'scheduled', 'published', 'failed'];
+        return ['pending', 'scheduled', 'processing', 'published', 'failed'];
     }
 }

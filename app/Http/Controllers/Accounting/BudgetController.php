@@ -6,13 +6,27 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Accounting\BudgetRequest;
 use App\Models\Budget;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class BudgetController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
-        $budgets = Budget::query()->where('user_id', auth()->id())->latest()->paginate(10);
+        $query = Budget::query()->where('user_id', auth()->id());
+
+        if ($search = $request->get('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('category', 'like', "%{$search}%");
+            });
+        }
+
+        if ($category = $request->get('category')) {
+            $query->where('category', $category);
+        }
+
+        $budgets = $query->latest()->paginate(10);
 
         return view('accounting.budgets.index', compact('budgets'));
     }
