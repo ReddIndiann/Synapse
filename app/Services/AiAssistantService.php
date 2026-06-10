@@ -3,67 +3,78 @@
 namespace App\Services;
 
 use App\Models\Task;
-use App\Models\MediaAsset;
-use App\Models\DistributionChannel;
-use App\Models\Transaction;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
 class AiAssistantService
 {
+    protected LocalAiService $localAi;
+
+    public function __construct(LocalAiService $localAi)
+    {
+        $this->localAi = $localAi;
+    }
+
     /**
-     * Parse natural language command.
+     * Parse natural language command using configured provider.
      */
     public function parse(string $prompt, int $userId): array
     {
-        $apiKey = config('services.gemini.key');
-        $nowStr = Carbon::now()->toDateTimeString();
+        $provider = config('ai.provider', 'regex');
 
-        $result = null;
-
-        if ($apiKey) {
-            try {
-                $response = Http::withHeaders([
-                    'Content-Type' => 'application/json',
-                ])->post("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={$apiKey}", [
-                    'contents' => [
-                        [
-                            'parts' => [
-                                ['text' => $this->getPromptContext($prompt, $nowStr)]
-                            ]
-                        ]
-                    ],
-                    'generationConfig' => [
-                        'responseMimeType' => 'application/json',
-                    ]
-                ]);
-
-                if ($response->successful()) {
-                    $json = $response->json();
-                    $textResponse = $json['candidates'][0]['content']['parts'][0]['text'] ?? null;
-                    if ($textResponse) {
-                        $result = json_decode(trim($textResponse), true);
-                    }
-                }
-            } catch (\Exception $e) {
-                // Fallback to local parser on exception
-                logger()->error('Gemini API parse failed: ' . $e->getMessage());
-            }
-        }
+        $result = match ($provider) {
+            'gemini' => $this->parseWithGemini($prompt),
+            'local'  => $this->localAi->parse($prompt, $userId),
+            default  => null,
+        };
 
         if (!$result) {
             $result = $this->localParse($prompt);
         }
 
-        // Apply context post-processing (e.g. checking conflict)
         return $this->postProcess($result, $userId);
     }
 
     /**
-     * System prompt context for Gemini.
+     * Parse via Google Gemini API.
      */
-    private function getPromptContext(string $prompt, string $nowStr): string
+    protected function parseWithGemini(string $prompt): ?array
+    {
+        $apiKey = config('ai.gemini.key');
+        if (!$apiKey) {
+            return null;
+        }
+
+        $model = config('ai.gemini.model', 'gemini-2.5-flash');
+        $nowStr = Carbon::now()->toDateTimeString();
+
+        try {
+            $response = Http::withHeaders(['Content-Type' => 'application/json'])
+                ->post("https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$apiKey}", [
+                    'contents' => [
+                        ['parts' => [['text' => $this->getPromptContext($prompt, $nowStr)]]],
+                    ],
+                    'generationConfig' => ['responseMimeType' => 'application/json'],
+                ]);
+
+            if ($response->successful()) {
+                $textResponse = $response->json('candidates.0.content.parts.0.text');
+                if ($textResponse) {
+                    $parsed = json_decode(trim($textResponse), true);
+                    if (is_array($parsed) && isset($parsed['intent'])) {
+                        return $parsed;
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            logger()->error('Gemini API parse failed: ' . $e->getMessage());
+        }
+
+        return null;
+    }
+
+    protected function getPromptContext(string $prompt, string $nowStr): string
     {
         return "You are the Natural Language Processing engine for Synapse, a personal assistant, accountant, and project distributor app.
 Current local time is: {$nowStr}.
@@ -118,11 +129,9 @@ Return 'unknown' intent if you cannot map the input to any of the above.";
     {
         $promptLower = strtolower($prompt);
 
-        // Check if query request
         $isQuery = Str::contains($promptLower, ['what', 'how', 'show', 'list', 'view', 'summary', 'status', 'report', 'am i', 'find', 'get', 'check', 'current', 'active', 'recent', 'total', 'have i', 'which', 'many', 'upcoming', 'next', 'sooner', 'earlier', 'later']);
 
         if ($isQuery) {
-            // 1. Check for query_tasks
             if (Str::contains($promptLower, ['task', 'tasks', 'todo', 'todos', 'checklist', 'schedule', 'scheduled', 'upcoming', 'next', 'sooner', 'earlier', 'later', 'due', 'overdue'])) {
                 $status = 'all';
                 if (Str::contains($promptLower, 'completed')) $status = 'completed';
@@ -132,13 +141,10 @@ Return 'unknown' intent if you cannot map the input to any of the above.";
 
                 return [
                     'intent' => 'query_tasks',
-                    'parameters' => [
-                        'status' => $status
-                    ]
+                    'parameters' => ['status' => $status]
                 ];
             }
 
-            // 2. Check for query_finances
             if (Str::contains($promptLower, ['finance', 'finances', 'spent', 'spending', 'income', 'expense', 'expenses', 'balance', 'budget', 'budgets', 'p&l', 'profit', 'loss', 'ledger', 'cost'])) {
                 $queryType = 'balance';
                 if (Str::contains($promptLower, ['budget', 'budgets'])) $queryType = 'budget_status';
@@ -148,13 +154,10 @@ Return 'unknown' intent if you cannot map the input to any of the above.";
 
                 return [
                     'intent' => 'query_finances',
-                    'parameters' => [
-                        'query_type' => $queryType
-                    ]
+                    'parameters' => ['query_type' => $queryType]
                 ];
             }
 
-            // 3. Check for query_queue
             if (Str::contains($promptLower, ['publish', 'queue', 'queued', 'distribute', 'distribution', 'channel', 'channels', 'upload', 'uploads', 'youtube', 'spotify', 'audiomack', 'facebook'])) {
                 $status = 'all';
                 if (Str::contains($promptLower, 'published')) $status = 'published';
@@ -164,46 +167,37 @@ Return 'unknown' intent if you cannot map the input to any of the above.";
 
                 return [
                     'intent' => 'query_queue',
-                    'parameters' => [
-                        'status' => $status
-                    ]
+                    'parameters' => ['status' => $status]
                 ];
             }
         }
 
-        // 1. Check for record_transaction (original logic follows)
-        if (Str::contains($promptLower, ['spend', 'spent', 'spent ', 'log expense', 'record expense', 'paid', 'buy', 'bought', 'expense', 'income', 'receive', 'received', 'earned', 'got paid', 'log income'])) {
-            $type = 'expense';
-            if (Str::contains($promptLower, ['income', 'receive', 'received', 'earned', 'got paid', 'log income'])) {
-                $type = 'income';
-            }
+        // record_transaction
+        if (Str::contains($promptLower, ['spend', 'spent', 'log expense', 'record expense', 'paid', 'buy', 'bought', 'expense', 'income', 'receive', 'received', 'earned', 'got paid', 'log income'])) {
+            $type = Str::contains($promptLower, ['income', 'receive', 'received', 'earned', 'got paid', 'log income']) ? 'income' : 'expense';
 
-            // Extract amount
             $amount = 0.0;
             if (preg_match('/(\d+(?:\.\d+)?)\s*(ghs|usd|eur|gbp|dollars|cedis|euro|pounds)?/i', $prompt, $matches)) {
                 $amount = floatval($matches[1]);
             }
 
-            // Extract currency
             $currency = 'GHS';
             if (preg_match('/(usd|eur|gbp|dollars|cedis|euro|pounds)/i', $promptLower, $cMatches)) {
                 $c = $cMatches[1];
-                if ($c === 'usd' || $c === 'dollars') $currency = 'USD';
-                elseif ($c === 'eur' || $c === 'euro') $currency = 'EUR';
-                elseif ($c === 'gbp' || $c === 'pounds') $currency = 'GBP';
-                else $currency = 'GHS';
+                $currency = match ($c) {
+                    'usd', 'dollars' => 'USD',
+                    'eur', 'euro' => 'EUR',
+                    'gbp', 'pounds' => 'GBP',
+                    default => 'GHS',
+                };
             }
 
-            // Extract Category
             $category = $type === 'income' ? 'Consulting Revenue' : 'Utilities';
             if (Str::contains($promptLower, ['rent'])) $category = 'Rent Expense';
             elseif (Str::contains($promptLower, ['marketing', 'ad', 'ads', 'promo'])) $category = 'Marketing';
             elseif (Str::contains($promptLower, ['software', 'subscription', 'saas', 'server', 'hosting'])) $category = 'Software Subscriptions';
             elseif (Str::contains($promptLower, ['travel', 'flight', 'uber', 'taxi'])) $category = 'Travel';
             elseif (Str::contains($promptLower, ['sale', 'product', 'shop'])) $category = 'Product Sales';
-
-            // Extract description
-            $description = $prompt;
 
             return [
                 'intent' => 'record_transaction',
@@ -212,13 +206,13 @@ Return 'unknown' intent if you cannot map the input to any of the above.";
                     'amount' => $amount,
                     'currency' => $currency,
                     'category' => $category,
-                    'description' => $description,
+                    'description' => $prompt,
                     'occurred_at' => Carbon::today()->toDateString(),
                 ]
             ];
         }
 
-        // 2. Check for publish_media
+        // publish_media
         if (Str::contains($promptLower, ['publish', 'upload', 'queue', 'post', 'distribute'])) {
             $channel = 'youtube';
             if (Str::contains($promptLower, 'spotify')) $channel = 'spotify';
@@ -228,7 +222,6 @@ Return 'unknown' intent if you cannot map the input to any of the above.";
             elseif (Str::contains($promptLower, 'facebook')) $channel = 'facebook';
             elseif (Str::contains($promptLower, 'website')) $channel = 'website';
 
-            // Extract media title: look for words after publish/upload
             $mediaTitle = 'Media Asset';
             if (preg_match('/(?:publish|upload|post)\s+["\']?([^"\']+)["\']?/i', $prompt, $mMatches)) {
                 $mediaTitle = trim($mMatches[1]);
@@ -240,24 +233,20 @@ Return 'unknown' intent if you cannot map the input to any of the above.";
                     'media_title' => $mediaTitle,
                     'channel' => $channel,
                     'caption' => $prompt,
-                    'scheduled_at' => null, // default to immediate
+                    'scheduled_at' => null,
                 ]
             ];
         }
 
-        // 3. Fallback to schedule_task
+        // schedule_task fallback
         $priority = 'medium';
         if (Str::contains($promptLower, 'high')) $priority = 'high';
         elseif (Str::contains($promptLower, 'low')) $priority = 'low';
 
         $dueAt = null;
-        $title = $prompt;
-
-        // Strip scheduling prefixes to isolate the actual task title
         $titleClean = preg_replace('/^(?:schedule|add|create|set|make|remind me to|remind me|i want to|i need to)\s+(?:(?:a|an|the)\s+)?(?:task|event|meeting|appointment)?\s*(?:for|to|about)?\s*/i', '', $prompt);
         $titleClean = trim($titleClean);
 
-        // Parse time expressions
         if (preg_match('/(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)/i', $promptLower, $tMatches)) {
             $hour = (int) $tMatches[1];
             $minute = !empty($tMatches[2]) ? (int) $tMatches[2] : 0;
@@ -277,8 +266,6 @@ Return 'unknown' intent if you cannot map the input to any of the above.";
             }
 
             $dueAt = $date->copy()->setHour($hour)->setMinute($minute)->setSecond(0)->toDateTimeString();
-
-            // Remove time expression from title
             $titleClean = preg_replace('/\b(?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)\b/i', '', $titleClean);
         } elseif (Str::contains($promptLower, 'tomorrow')) {
             $dueAt = Carbon::tomorrow()->setHour(9)->setMinute(0)->toDateTimeString();
@@ -288,12 +275,9 @@ Return 'unknown' intent if you cannot map the input to any of the above.";
             $dueAt = Carbon::parse($dMatches[1])->setHour(9)->setMinute(0)->toDateTimeString();
         }
 
-        // Clean up leftover scheduling verbs and filler from title
         $titleClean = preg_replace('/\b(today|tomorrow|next|at|by|before|after|this|coming)\b/i', '', $titleClean);
         $titleClean = preg_replace('/\s{2,}/', ' ', $titleClean);
         $titleClean = trim($titleClean);
-
-        // If cleaning removed everything, fall back to original
         $title = $titleClean ?: $prompt;
 
         return [
@@ -307,9 +291,6 @@ Return 'unknown' intent if you cannot map the input to any of the above.";
         ];
     }
 
-    /**
-     * Post-process parsed results (e.g. check for conflicts, link channels).
-     */
     private function postProcess(array $parsed, int $userId): array
     {
         if ($parsed['intent'] === 'schedule_task') {
@@ -319,7 +300,6 @@ Return 'unknown' intent if you cannot map the input to any of the above.";
                 $start = $dueCarbon->copy()->subHour();
                 $end = $dueCarbon->copy()->addHour();
 
-                // Find conflicting tasks
                 $conflicts = Task::query()
                     ->where('user_id', $userId)
                     ->whereBetween('due_at', [$start, $end])
@@ -328,17 +308,19 @@ Return 'unknown' intent if you cannot map the input to any of the above.";
 
                 if ($conflicts->isNotEmpty()) {
                     $parsed['conflict'] = true;
-                    $parsed['conflicting_tasks'] = $conflicts->map(function ($t) {
-                        return [
-                            'id' => $t->id,
-                            'title' => $t->title,
-                            'due_at' => $t->due_at->toDateTimeString(),
-                        ];
-                    })->toArray();
+                    $parsed['conflicting_tasks'] = $conflicts->map(fn($t) => [
+                        'id' => $t->id,
+                        'title' => $t->title,
+                        'due_at' => $t->due_at->toDateTimeString(),
+                    ])->toArray();
 
-                    // Propose alternative slot: next available hour on the same day, or next day
                     $altSlot = $dueCarbon->copy()->addHour();
-                    while (Task::query()->where('user_id', $userId)->whereBetween('due_at', [$altSlot->copy()->subHour(), $altSlot->copy()->addHour()])->whereNotIn('status', ['completed', 'cancelled'])->exists()) {
+                    while (Task::query()
+                        ->where('user_id', $userId)
+                        ->whereBetween('due_at', [$altSlot->copy()->subHour(), $altSlot->copy()->addHour()])
+                        ->whereNotIn('status', ['completed', 'cancelled'])
+                        ->exists()
+                    ) {
                         $altSlot->addHour();
                     }
                     $parsed['alternative_due_at'] = $altSlot->toDateTimeString();
