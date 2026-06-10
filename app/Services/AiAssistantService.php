@@ -119,11 +119,11 @@ Return 'unknown' intent if you cannot map the input to any of the above.";
         $promptLower = strtolower($prompt);
 
         // Check if query request
-        $isQuery = Str::contains($promptLower, ['what', 'how', 'show', 'list', 'view', 'summary', 'status', 'report', 'am i', 'find', 'get', 'check', 'current', 'active', 'recent', 'total', 'have i']);
+        $isQuery = Str::contains($promptLower, ['what', 'how', 'show', 'list', 'view', 'summary', 'status', 'report', 'am i', 'find', 'get', 'check', 'current', 'active', 'recent', 'total', 'have i', 'which', 'many', 'upcoming', 'next', 'sooner', 'earlier', 'later']);
 
         if ($isQuery) {
             // 1. Check for query_tasks
-            if (Str::contains($promptLower, ['task', 'tasks', 'todo', 'todos', 'checklist', 'schedule', 'scheduled'])) {
+            if (Str::contains($promptLower, ['task', 'tasks', 'todo', 'todos', 'checklist', 'schedule', 'scheduled', 'upcoming', 'next', 'sooner', 'earlier', 'later', 'due', 'overdue'])) {
                 $status = 'all';
                 if (Str::contains($promptLower, 'completed')) $status = 'completed';
                 elseif (Str::contains($promptLower, 'cancelled')) $status = 'cancelled';
