@@ -1,4 +1,5 @@
 <x-ui.page title="Queue Publish Job" maxWidth="3xl">
+    <x-ui.back-link :href="route('distribution.publish.index')" label="Back to Publish Queue" />
     <x-ui.form-card title="Distribution Job Details">
         <form method="POST" action="{{ route('distribution.publish.store') }}" class="space-y-5">
             @csrf

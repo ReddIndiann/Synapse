@@ -139,7 +139,8 @@ class ServiceTest extends TestCase
     {
         $result = $this->aiService->parse('Schedule client call tomorrow at 10 AM high priority', $this->user->id);
 
-        $this->assertEquals('schedule_task', $result['intent']);
+        $this->assertEquals('manage_task', $result['intent']);
+        $this->assertEquals('create', $result['parameters']['action']);
         $this->assertArrayHasKey('title', $result['parameters']);
     }
 

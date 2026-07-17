@@ -21,6 +21,7 @@
         --primary: 139 92 246;
         --primary-strong: 109 40 217;
         --ring: 139 92 246;
+        --tx2: #555577;
     }
 
     .dark {
@@ -39,6 +40,7 @@
         --primary: 139 92 246;
         --primary-strong: 124 58 237;
         --ring: 139 92 246;
+        --tx2: #a2a2ba;
     }
 
     body {
@@ -400,6 +402,76 @@
 /* Form input icon padding */
 .auth-input-icon {
     padding-left: 2.75rem !important;
+}
+
+/* Theme-aware muted text helper (used across superadmin and marketing pages) */
+.text-muted {
+    color: var(--text-secondary);
+}
+
+/* Theme-aware surface/border helpers (used in superadmin filters and forms) */
+.bg-surface {
+    background-color: var(--surface) !important;
+    color: var(--text);
+}
+.border-border {
+    border-color: var(--border) !important;
+}
+
+/* Native select dropdown options: readable in both themes */
+select,
+select option {
+    background-color: var(--surface);
+    color: var(--text);
+}
+
+/*
+ * Light mode contrast fixes.
+ * Several pages were designed dark-first and use pale -300/-400 text colors
+ * that are nearly invisible on white. Darken them in light mode, but leave
+ * permanently-dark surfaces (e.g. the publish monitor console) untouched.
+ * Tailwind's dark:-prefixed classes are unaffected (different class names).
+ */
+html:not(.dark) :is(.text-slate-300, .text-gray-300, .text-slate-400, .text-gray-400):not(.bg-slate-950 *, #console-logs *) {
+    color: #475569 !important; /* slate-600 */
+}
+html:not(.dark) :is(.text-purple-300, .text-purple-400):not(.bg-slate-950 *, #console-logs *) {
+    color: #7e22ce !important; /* purple-700 */
+}
+html:not(.dark) .text-violet-400:not(.bg-slate-950 *, #console-logs *) {
+    color: #6d28d9 !important; /* violet-700 */
+}
+html:not(.dark) .text-indigo-400:not(.bg-slate-950 *, #console-logs *) {
+    color: #4338ca !important; /* indigo-700 */
+}
+html:not(.dark) .text-blue-400:not(.bg-slate-950 *, #console-logs *) {
+    color: #1d4ed8 !important; /* blue-700 */
+}
+html:not(.dark) .text-sky-400:not(.bg-slate-950 *, #console-logs *) {
+    color: #0369a1 !important; /* sky-700 */
+}
+html:not(.dark) :is(.text-cyan-300, .text-cyan-400):not(.bg-slate-950 *, #console-logs *) {
+    color: #0e7490 !important; /* cyan-700 */
+}
+html:not(.dark) :is(.text-emerald-300, .text-emerald-400):not(.bg-slate-950 *, #console-logs *) {
+    color: #047857 !important; /* emerald-700 */
+}
+html:not(.dark) :is(.text-amber-300, .text-amber-400):not(.bg-slate-950 *, #console-logs *) {
+    color: #b45309 !important; /* amber-700 */
+}
+html:not(.dark) .text-rose-400:not(.bg-slate-950 *, #console-logs *) {
+    color: #be123c !important; /* rose-700 */
+}
+html:not(.dark) :is(.text-red-200, .text-red-300, .text-red-400):not(.bg-slate-950 *, #console-logs *) {
+    color: #b91c1c !important; /* red-700 */
+}
+
+/* Pale-tinted chips (e.g. bg-purple-500/20) need stronger tint in light mode */
+html:not(.dark) .bg-purple-500\/20 {
+    background-color: rgba(139, 92, 246, 0.12) !important;
+}
+html:not(.dark) .bg-emerald-500\/20 {
+    background-color: rgba(16, 185, 129, 0.12) !important;
 }
 
 /* Dynamic contrast adaptations for standard Tailwind color classes in Dark Theme */

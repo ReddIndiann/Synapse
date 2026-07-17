@@ -1,4 +1,5 @@
 <x-ui.page title="Edit Media Asset" maxWidth="3xl">
+    <x-ui.back-link :href="route('distribution.media.index')" label="Back to Media Library" />
     <x-ui.form-card title="Asset Details">
         <form method="POST" action="{{ route('distribution.media.update', $asset) }}" class="space-y-5">
             @csrf @method('PUT')

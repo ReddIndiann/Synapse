@@ -4,45 +4,77 @@
     </x-slot>
 
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        <div class="grid md:grid-cols-3 gap-6">
-            {{-- Gemini --}}
-            <x-ui.card title="Google Gemini">
-                <div class="space-y-2 text-sm">
+        <x-ui.card title="Active Provider">
+            <div class="text-sm space-y-2">
+                <div class="flex justify-between">
+                    <span class="text-muted">AI_PROVIDER</span>
+                    <span class="font-semibold text-purple-300">{{ $activeProvider }}</span>
+                </div>
+                @if(!empty($fallbackProviders))
                     <div class="flex justify-between">
-                        <span class="text-muted">Status</span>
-                        <span class="{{ $providers['gemini']['configured'] ? 'text-emerald-400' : 'text-red-400' }}">
-                            {{ $providers['gemini']['configured'] ? 'Configured' : 'Not Configured' }}
-                        </span>
+                        <span class="text-muted">Fallback chain</span>
+                        <span>{{ implode(' → ', $fallbackProviders) }} → regex</span>
                     </div>
-                    @if($providers['gemini']['configured'])
-                        <div class="flex justify-between"><span class="text-muted">Model</span><span>{{ $providers['gemini']['model'] }}</span></div>
-                        <div class="flex justify-between"><span class="text-muted">Key</span><span>{{ $providers['gemini']['key_preview'] }}</span></div>
-                    @endif
-                    <button onclick="testProvider('gemini')" class="mt-3 px-3 py-1.5 rounded-lg bg-purple-600 text-white text-sm hover:bg-purple-500" {{ $providers['gemini']['configured'] ? '' : 'disabled' }}>
-                        Test Connection
-                    </button>
-                </div>
-            </x-ui.card>
+                @else
+                    <p class="text-muted text-xs">No fallback providers configured. Failed API calls fall back to the built-in regex parser.</p>
+                @endif
+            </div>
+        </x-ui.card>
 
-            {{-- Local AI --}}
-            <x-ui.card title="Local AI (Ollama)">
-                <div class="space-y-2 text-sm">
-                    <div class="flex justify-between"><span class="text-muted">Endpoint</span><span>{{ $providers['local']['endpoint'] }}</span></div>
-                    <div class="flex justify-between"><span class="text-muted">Model</span><span>{{ $providers['local']['model'] }}</span></div>
-                    <button onclick="testProvider('local')" class="mt-3 px-3 py-1.5 rounded-lg bg-cyan-600 text-white text-sm hover:bg-cyan-500">
-                        Test Connection
-                    </button>
-                </div>
-            </x-ui.card>
+        <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
+            @foreach($providers as $name => $provider)
+                <x-ui.card :title="$provider['label'] ?? ucfirst($name)">
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-muted">Provider key</span>
+                            <code class="text-xs text-purple-300">{{ $name }}</code>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-muted">Status</span>
+                            <span class="{{ ($provider['configured'] ?? false) ? 'text-emerald-400' : 'text-red-400' }}">
+                                @if($name === 'regex')
+                                    Always Available
+                                @else
+                                    {{ ($provider['configured'] ?? false) ? 'Configured' : 'Not Configured' }}
+                                @endif
+                            </span>
+                        </div>
 
-            {{-- Regex Fallback --}}
-            <x-ui.card title="Regex Parser">
-                <div class="space-y-2 text-sm">
-                    <div class="flex justify-between"><span class="text-muted">Status</span><span class="text-emerald-400">Always Available</span></div>
-                    <p class="text-muted mt-1">{{ $providers['regex']['description'] }}</p>
-                </div>
-            </x-ui.card>
+                        @if($name === 'regex')
+                            <p class="text-muted mt-1">{{ $provider['description'] ?? 'Built-in PHP pattern matching.' }}</p>
+                        @else
+                            @if(!empty($provider['model']))
+                                <div class="flex justify-between"><span class="text-muted">Model</span><span class="text-right truncate max-w-[180px]" title="{{ $provider['model'] }}">{{ $provider['model'] }}</span></div>
+                            @endif
+                            @if(!empty($provider['endpoint']))
+                                <div class="flex justify-between"><span class="text-muted">Endpoint</span><span class="text-right truncate max-w-[180px]" title="{{ $provider['endpoint'] }}">{{ $provider['endpoint'] }}</span></div>
+                            @endif
+                            @if(!empty($provider['key_preview']))
+                                <div class="flex justify-between"><span class="text-muted">Key</span><span>{{ $provider['key_preview'] }}</span></div>
+                            @endif
+
+                            <button
+                                onclick="testProvider('{{ $name }}')"
+                                class="mt-3 px-3 py-1.5 rounded-lg bg-purple-600 text-white text-sm hover:bg-purple-500 disabled:opacity-50"
+                                {{ ($provider['configured'] ?? false) ? '' : 'disabled' }}
+                            >
+                                Test Connection
+                            </button>
+                        @endif
+
+                        @if($activeProvider === $name)
+                            <span class="inline-block mt-2 text-[10px] font-bold uppercase tracking-wider text-emerald-400">Active</span>
+                        @endif
+                    </div>
+                </x-ui.card>
+            @endforeach
         </div>
+
+        <x-ui.alert variant="info">
+            Set <code class="text-purple-300">AI_PROVIDER</code> in <code class="text-purple-300">.env</code> to any provider key above.
+            Use <code class="text-purple-300">openai_compatible</code> for Azure OpenAI or any custom gateway that supports OpenAI chat completions.
+            Optional: <code class="text-purple-300">AI_FALLBACK_PROVIDERS=openai,gemini,local</code>
+        </x-ui.alert>
 
         <div id="test-result" class="hidden"></div>
     </div>

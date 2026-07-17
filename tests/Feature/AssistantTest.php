@@ -181,4 +181,125 @@ class AssistantTest extends TestCase
         $response->assertJson(['success' => true]);
         $this->assertDatabaseHas('tasks', ['id' => $task->id, 'status' => 'completed']);
     }
+
+    public function test_chat_set_budget_creates_budget_not_task(): void
+    {
+        config(['ai.provider' => 'regex']);
+
+        $this->actingAs($this->user)->post(route('assistant.chat.store'), [
+            'prompt' => 'Set marketing budget to 5000',
+        ]);
+
+        $this->assertDatabaseHas('budgets', [
+            'user_id' => $this->user->id,
+            'category' => 'Marketing',
+            'amount' => 5000,
+        ]);
+
+        $this->assertDatabaseMissing('tasks', [
+            'user_id' => $this->user->id,
+            'title' => 'Set marketing budget to 5000',
+        ]);
+    }
+
+    public function test_chat_show_budgets_lists_budgets(): void
+    {
+        config(['ai.provider' => 'regex']);
+
+        \App\Models\Budget::factory()->create([
+            'user_id' => $this->user->id,
+            'name' => 'Rent Budget',
+            'category' => 'Rent',
+            'amount' => 2000,
+        ]);
+
+        $this->actingAs($this->user)->post(route('assistant.chat.store'), [
+            'prompt' => 'Show my budgets',
+        ]);
+
+        $reply = AssistantMessage::where('user_id', $this->user->id)
+            ->where('role', 'assistant')
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($reply);
+        $this->assertStringContainsString('Rent', $reply->content);
+        $this->assertStringContainsString('2,000', $reply->content);
+    }
+
+    public function test_chat_delete_task_prompts_confirmation_then_deletes(): void
+    {
+        config(['ai.provider' => 'regex']);
+
+        $task = Task::factory()->create([
+            'user_id' => $this->user->id,
+            'title' => 'Client Call',
+        ]);
+
+        $this->actingAs($this->user)->post(route('assistant.chat.store'), [
+            'prompt' => 'Delete client call task',
+        ]);
+
+        $confirm = AssistantMessage::where('user_id', $this->user->id)
+            ->where('role', 'assistant')
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($confirm);
+        $this->assertEquals('confirm_delete_task', $confirm->metadata['type'] ?? null);
+        $this->assertDatabaseHas('tasks', ['id' => $task->id]);
+
+        $this->actingAs($this->user)->post(route('assistant.chat.confirm', $confirm), [
+            'action' => 'confirm',
+        ]);
+
+        $this->assertDatabaseMissing('tasks', ['id' => $task->id]);
+    }
+
+    public function test_chat_schedule_meeting_still_creates_task(): void
+    {
+        config(['ai.provider' => 'regex']);
+
+        $this->actingAs($this->user)->post(route('assistant.chat.store'), [
+            'prompt' => 'Schedule meeting tomorrow at 10 AM',
+        ]);
+
+        $this->assertDatabaseHas('tasks', [
+            'user_id' => $this->user->id,
+        ]);
+
+        $this->assertTrue(
+            Task::where('user_id', $this->user->id)->where('title', 'like', '%meeting%')->exists()
+            || Task::where('user_id', $this->user->id)->exists()
+        );
+    }
+
+    public function test_chat_delete_budget_prompts_confirmation(): void
+    {
+        config(['ai.provider' => 'regex']);
+
+        $budget = \App\Models\Budget::factory()->create([
+            'user_id' => $this->user->id,
+            'name' => 'Rent Budget',
+            'category' => 'Rent',
+            'amount' => 1500,
+        ]);
+
+        $this->actingAs($this->user)->post(route('assistant.chat.store'), [
+            'prompt' => 'Delete rent budget',
+        ]);
+
+        $confirm = AssistantMessage::where('user_id', $this->user->id)
+            ->where('role', 'assistant')
+            ->latest('id')
+            ->first();
+
+        $this->assertEquals('confirm_delete_budget', $confirm->metadata['type'] ?? null);
+
+        $this->actingAs($this->user)->post(route('assistant.chat.confirm', $confirm), [
+            'action' => 'confirm',
+        ]);
+
+        $this->assertDatabaseMissing('budgets', ['id' => $budget->id]);
+    }
 }

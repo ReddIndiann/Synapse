@@ -10,9 +10,10 @@
 
     <div class="grid sm:grid-cols-2 gap-4">
         <div>
-            <x-input-label for="category" value="Category" />
-            <x-text-input id="category" class="mt-1" name="category" :value="old('category', $budget?->category)" required />
-            <x-input-error :messages="$errors->get('category')" class="mt-1" />
+            <x-ui.category-select
+                :value="old('category', $budget?->category)"
+                :categories="$categories ?? \App\Support\AccountingCategories::forBudgets()"
+            />
         </div>
         <div>
             <x-input-label for="amount" value="Limit amount" />

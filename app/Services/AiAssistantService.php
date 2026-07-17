@@ -2,18 +2,18 @@
 
 namespace App\Services;
 
+use App\Services\Ai\AiProviderManager;
 use App\Models\Task;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
 class AiAssistantService
 {
-    protected LocalAiService $localAi;
+    protected AiProviderManager $providers;
 
-    public function __construct(LocalAiService $localAi)
+    public function __construct(AiProviderManager $providers)
     {
-        $this->localAi = $localAi;
+        $this->providers = $providers;
     }
 
     /**
@@ -21,118 +21,158 @@ class AiAssistantService
      */
     public function parse(string $prompt, int $userId): array
     {
-        $provider = config('ai.provider', 'regex');
-
-        $result = match ($provider) {
-            'gemini' => $this->parseWithGemini($prompt),
-            'local'  => $this->localAi->parse($prompt, $userId),
-            default  => null,
-        };
+        $result = $this->providers->parse($prompt, $userId);
 
         if (!$result) {
             $result = $this->localParse($prompt);
         }
 
+        $result = $this->normalizeIntents($result);
+
         return $this->postProcess($result, $userId);
     }
 
     /**
-     * Parse via Google Gemini API.
+     * Map legacy intents to manage_task / manage_budget.
      */
-    protected function parseWithGemini(string $prompt): ?array
+    protected function normalizeIntents(array $parsed): array
     {
-        $apiKey = config('ai.gemini.key');
-        if (!$apiKey) {
-            return null;
+        $intent = $parsed['intent'] ?? 'unknown';
+        $params = $parsed['parameters'] ?? [];
+
+        if ($intent === 'schedule_task') {
+            return [
+                'intent' => 'manage_task',
+                'parameters' => array_merge($params, ['action' => 'create']),
+            ];
         }
 
-        $model = config('ai.gemini.model', 'gemini-2.5-flash');
-        $nowStr = Carbon::now()->toDateTimeString();
-
-        try {
-            $response = Http::withHeaders(['Content-Type' => 'application/json'])
-                ->post("https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$apiKey}", [
-                    'contents' => [
-                        ['parts' => [['text' => $this->getPromptContext($prompt, $nowStr)]]],
-                    ],
-                    'generationConfig' => ['responseMimeType' => 'application/json'],
-                ]);
-
-            if ($response->successful()) {
-                $textResponse = $response->json('candidates.0.content.parts.0.text');
-                if ($textResponse) {
-                    $parsed = json_decode(trim($textResponse), true);
-                    if (is_array($parsed) && isset($parsed['intent'])) {
-                        return $parsed;
-                    }
-                }
-            }
-        } catch (\Exception $e) {
-            logger()->error('Gemini API parse failed: ' . $e->getMessage());
+        if ($intent === 'query_tasks') {
+            return [
+                'intent' => 'manage_task',
+                'parameters' => array_merge($params, ['action' => 'read']),
+            ];
         }
 
-        return null;
-    }
+        if ($intent === 'query_finances' && ($params['query_type'] ?? '') === 'budget_status') {
+            return [
+                'intent' => 'manage_budget',
+                'parameters' => array_merge($params, ['action' => 'read']),
+            ];
+        }
 
-    protected function getPromptContext(string $prompt, string $nowStr): string
-    {
-        return "You are the Natural Language Processing engine for Synapse, a personal assistant, accountant, and project distributor app.
-Current local time is: {$nowStr}.
-
-Parse the user's input: \"{$prompt}\"
-
-You must output ONLY a valid JSON object. Do not wrap in markdown or any other tags.
-The JSON format must be:
-{
-  \"intent\": \"schedule_task\" | \"record_transaction\" | \"publish_media\" | \"query_tasks\" | \"query_finances\" | \"query_queue\" | \"unknown\",
-  \"parameters\": { ... }
-}
-
-Guidelines for parameters based on intent:
-
-1. schedule_task:
-- \"title\": string (What the user wants to do, clear summary)
-- \"description\": string or null (additional context or details)
-- \"due_at\": string (format: \"YYYY-MM-DD HH:MM:SS\") or null if no time specified. Interpret relative times like \"tomorrow at 2pm\" or \"friday morning\" relative to current time {$nowStr}.
-- \"priority\": \"low\" | \"medium\" | \"high\" (default \"medium\")
-
-2. record_transaction:
-- \"type\": \"income\" | \"expense\"
-- \"amount\": float (must be greater than 0)
-- \"currency\": string (3 letters e.g., \"GHS\", \"USD\", \"EUR\", \"GBP\". Default \"GHS\")
-- \"category\": string (suitable ledger category e.g., \"Rent Expense\", \"Saas Subscriptions\", \"Marketing\", \"Consulting Revenue\", \"Product Sales\")
-- \"description\": string or null
-- \"occurred_at\": string (format: \"YYYY-MM-DD\", default to today)
-
-3. publish_media:
-- \"media_title\": string (title of the media the user wants to publish)
-- \"channel\": \"youtube\" | \"spotify\" | \"audiomack\" | \"instagram\" | \"linkedin\" | \"facebook\" | \"website\"
-- \"caption\": string or null (accompanying description or notes)
-- \"scheduled_at\": string (format: \"YYYY-MM-DD HH:MM:SS\") or null for immediate publishing.
-
-4. query_tasks:
-- \"status\": \"pending\" | \"in_progress\" | \"completed\" | \"cancelled\" | \"all\" (default \"all\")
-
-5. query_finances:
-- \"query_type\": \"balance\" | \"total_income\" | \"total_expense\" | \"budget_status\" | \"list\" (default \"balance\")
-
-6. query_queue:
-- \"status\": \"pending\" | \"scheduled\" | \"published\" | \"failed\" | \"all\" (default \"all\")
-
-Return 'unknown' intent if you cannot map the input to any of the above.";
+        return $parsed;
     }
 
     /**
      * Fallback local parser using regex and simple rules.
+     * Domain-first: budget vs task before catch-all create.
      */
     private function localParse(string $prompt): array
     {
         $promptLower = strtolower($prompt);
 
+        $budgetSignals = ['budget', 'budgets', 'spending limit', 'allowance', 'spending cap'];
+        $taskSignals = ['task', 'tasks', 'todo', 'todos', 'checklist', 'meeting', 'appointment', 'remind', 'reminder'];
+        $hasBudget = Str::contains($promptLower, $budgetSignals);
+        $hasTask = Str::contains($promptLower, $taskSignals);
+
+        $isDelete = (bool) preg_match('/\b(delete|remove|drop|erase)\b/i', $promptLower);
+        $isUpdate = (bool) preg_match('/\b(update|change|edit|set|increase|decrease|raise|lower)\b/i', $promptLower);
+        $isComplete = (bool) preg_match('/\b(mark\s+(as\s+)?complete|complete|finish|done)\b/i', $promptLower);
         $isQuery = Str::contains($promptLower, ['what', 'how', 'show', 'list', 'view', 'summary', 'status', 'report', 'am i', 'find', 'get', 'check', 'current', 'active', 'recent', 'total', 'have i', 'which', 'many', 'upcoming', 'next', 'sooner', 'earlier', 'later']);
 
+        // --- Budget CRUD (domain gate first) ---
+        if ($hasBudget) {
+            if ($isDelete) {
+                return [
+                    'intent' => 'manage_budget',
+                    'parameters' => [
+                        'action' => 'delete',
+                        'name' => $this->extractBudgetHint($prompt),
+                        'category' => $this->extractBudgetHint($prompt),
+                    ],
+                ];
+            }
+
+            if ($isUpdate || preg_match('/\b(set|create|add|make|new)\b/i', $promptLower)) {
+                $amount = $this->extractAmount($prompt);
+                $hint = $this->extractBudgetHint($prompt);
+                $period = 'monthly';
+                if (Str::contains($promptLower, 'quarterly')) $period = 'quarterly';
+                elseif (Str::contains($promptLower, 'yearly') || Str::contains($promptLower, 'annual')) $period = 'yearly';
+
+                // "set/create/add" establishes or upserts a budget; explicit update verbs → update
+                $action = 'create';
+                if (preg_match('/\b(update|change|edit|increase|decrease|raise|lower)\b/i', $promptLower)) {
+                    $action = 'update';
+                }
+
+                return [
+                    'intent' => 'manage_budget',
+                    'parameters' => [
+                        'action' => $action,
+                        'name' => $hint ?: 'Budget',
+                        'category' => $hint ?: 'General',
+                        'amount' => $amount,
+                        'period' => $period,
+                    ],
+                ];
+            }
+
+            if ($isQuery || true) {
+                // Default budget mentions without verbs → read
+                return [
+                    'intent' => 'manage_budget',
+                    'parameters' => [
+                        'action' => 'read',
+                        'name' => $this->extractBudgetHint($prompt),
+                        'category' => $this->extractBudgetHint($prompt),
+                    ],
+                ];
+            }
+        }
+
+        // --- Task delete / complete / update ---
+        if ($isDelete && ($hasTask || !$hasBudget)) {
+            // Prefer task delete when "task" mentioned, or delete without budget
+            if ($hasTask || preg_match('/\b(delete|remove)\b.+\b(task|todo|meeting)\b/i', $promptLower)
+                || preg_match('/\b(delete|remove)\b\s+["\']?(.+?)["\']?\s*(task|todo)?$/i', $promptLower)) {
+                return [
+                    'intent' => 'manage_task',
+                    'parameters' => [
+                        'action' => 'delete',
+                        'title' => $this->extractTaskHint($prompt),
+                    ],
+                ];
+            }
+        }
+
+        if ($isComplete && !$hasBudget) {
+            return [
+                'intent' => 'manage_task',
+                'parameters' => [
+                    'action' => 'complete',
+                    'title' => $this->extractTaskHint($prompt),
+                ],
+            ];
+        }
+
+        if ($isUpdate && $hasTask && !$hasBudget) {
+            $params = [
+                'action' => 'update',
+                'title' => $this->extractTaskHint($prompt),
+            ];
+            if (Str::contains($promptLower, 'high')) $params['priority'] = 'high';
+            elseif (Str::contains($promptLower, 'low')) $params['priority'] = 'low';
+            $due = $this->extractDueAt($prompt, $promptLower);
+            if ($due) $params['due_at'] = $due;
+            return ['intent' => 'manage_task', 'parameters' => $params];
+        }
+
+        // --- Queries ---
         if ($isQuery) {
-            if (Str::contains($promptLower, ['task', 'tasks', 'todo', 'todos', 'checklist', 'schedule', 'scheduled', 'upcoming', 'next', 'sooner', 'earlier', 'later', 'due', 'overdue'])) {
+            if ($hasTask || Str::contains($promptLower, ['upcoming', 'next', 'sooner', 'earlier', 'later', 'due', 'overdue', 'schedule', 'scheduled'])) {
                 $status = 'all';
                 if (Str::contains($promptLower, 'completed')) $status = 'completed';
                 elseif (Str::contains($promptLower, 'cancelled')) $status = 'cancelled';
@@ -140,21 +180,20 @@ Return 'unknown' intent if you cannot map the input to any of the above.";
                 elseif (Str::contains($promptLower, ['in progress', 'active'])) $status = 'in_progress';
 
                 return [
-                    'intent' => 'query_tasks',
-                    'parameters' => ['status' => $status]
+                    'intent' => 'manage_task',
+                    'parameters' => ['action' => 'read', 'status' => $status],
                 ];
             }
 
-            if (Str::contains($promptLower, ['finance', 'finances', 'spent', 'spending', 'income', 'expense', 'expenses', 'balance', 'budget', 'budgets', 'p&l', 'profit', 'loss', 'ledger', 'cost'])) {
+            if (Str::contains($promptLower, ['finance', 'finances', 'spent', 'spending', 'income', 'expense', 'expenses', 'balance', 'p&l', 'profit', 'loss', 'ledger', 'cost'])) {
                 $queryType = 'balance';
-                if (Str::contains($promptLower, ['budget', 'budgets'])) $queryType = 'budget_status';
-                elseif (Str::contains($promptLower, ['income'])) $queryType = 'total_income';
+                if (Str::contains($promptLower, ['income'])) $queryType = 'total_income';
                 elseif (Str::contains($promptLower, ['spent', 'spending', 'expense', 'expenses', 'cost'])) $queryType = 'total_expense';
                 elseif (Str::contains($promptLower, ['list', 'recent', 'transactions'])) $queryType = 'list';
 
                 return [
                     'intent' => 'query_finances',
-                    'parameters' => ['query_type' => $queryType]
+                    'parameters' => ['query_type' => $queryType],
                 ];
             }
 
@@ -167,23 +206,20 @@ Return 'unknown' intent if you cannot map the input to any of the above.";
 
                 return [
                     'intent' => 'query_queue',
-                    'parameters' => ['status' => $status]
+                    'parameters' => ['status' => $status],
                 ];
             }
         }
 
-        // record_transaction
+        // --- record_transaction ---
         if (Str::contains($promptLower, ['spend', 'spent', 'log expense', 'record expense', 'paid', 'buy', 'bought', 'expense', 'income', 'receive', 'received', 'earned', 'got paid', 'log income'])) {
             $type = Str::contains($promptLower, ['income', 'receive', 'received', 'earned', 'got paid', 'log income']) ? 'income' : 'expense';
 
-            $amount = 0.0;
-            if (preg_match('/(\d+(?:\.\d+)?)\s*(ghs|usd|eur|gbp|dollars|cedis|euro|pounds)?/i', $prompt, $matches)) {
-                $amount = floatval($matches[1]);
-            }
+            $amount = $this->extractAmount($prompt);
 
             $currency = 'GHS';
             if (preg_match('/(usd|eur|gbp|dollars|cedis|euro|pounds)/i', $promptLower, $cMatches)) {
-                $c = $cMatches[1];
+                $c = strtolower($cMatches[1]);
                 $currency = match ($c) {
                     'usd', 'dollars' => 'USD',
                     'eur', 'euro' => 'EUR',
@@ -208,11 +244,11 @@ Return 'unknown' intent if you cannot map the input to any of the above.";
                     'category' => $category,
                     'description' => $prompt,
                     'occurred_at' => Carbon::today()->toDateString(),
-                ]
+                ],
             ];
         }
 
-        // publish_media
+        // --- publish_media ---
         if (Str::contains($promptLower, ['publish', 'upload', 'queue', 'post', 'distribute'])) {
             $channel = 'youtube';
             if (Str::contains($promptLower, 'spotify')) $channel = 'spotify';
@@ -234,18 +270,79 @@ Return 'unknown' intent if you cannot map the input to any of the above.";
                     'channel' => $channel,
                     'caption' => $prompt,
                     'scheduled_at' => null,
-                ]
+                ],
             ];
         }
 
-        // schedule_task fallback
-        $priority = 'medium';
-        if (Str::contains($promptLower, 'high')) $priority = 'high';
-        elseif (Str::contains($promptLower, 'low')) $priority = 'low';
+        // --- schedule_task only with clear task signals or schedule verbs ---
+        $scheduleVerb = (bool) preg_match('/\b(schedule|add|create|set|make|remind me|i want to|i need to)\b/i', $promptLower);
+        $hasTime = (bool) preg_match('/\b(tomorrow|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday|\d{1,2}\s*(am|pm)|at\s+\d)/i', $promptLower);
 
+        if ($hasTask || $scheduleVerb || $hasTime) {
+            $priority = 'medium';
+            if (Str::contains($promptLower, 'high')) $priority = 'high';
+            elseif (Str::contains($promptLower, 'low')) $priority = 'low';
+
+            $dueAt = $this->extractDueAt($prompt, $promptLower);
+            $titleClean = preg_replace('/^(?:schedule|add|create|set|make|remind me to|remind me|i want to|i need to)\s+(?:(?:a|an|the)\s+)?(?:task|event|meeting|appointment)?\s*(?:for|to|about)?\s*/i', '', $prompt);
+            $titleClean = trim($titleClean);
+            $titleClean = preg_replace('/\b(?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)\b/i', '', $titleClean);
+            $titleClean = preg_replace('/\b(today|tomorrow|next|at|by|before|after|this|coming|high|low|priority|medium)\b/i', '', $titleClean);
+            $titleClean = preg_replace('/\s{2,}/', ' ', $titleClean);
+            $titleClean = trim($titleClean);
+            $title = $titleClean ?: $prompt;
+
+            return [
+                'intent' => 'manage_task',
+                'parameters' => [
+                    'action' => 'create',
+                    'title' => Str::limit($title, 80),
+                    'description' => $prompt,
+                    'due_at' => $dueAt,
+                    'priority' => $priority,
+                ],
+            ];
+        }
+
+        return [
+            'intent' => 'unknown',
+            'parameters' => [],
+        ];
+    }
+
+    private function extractAmount(string $prompt): float
+    {
+        if (preg_match('/(\d+(?:\.\d+)?)\s*(ghs|usd|eur|gbp|dollars|cedis|euro|pounds)?/i', $prompt, $matches)) {
+            return floatval($matches[1]);
+        }
+        return 0.0;
+    }
+
+    private function extractBudgetHint(string $prompt): ?string
+    {
+        // "marketing budget", "rent budget", "budget for marketing"
+        if (preg_match('/\b(?:for\s+)?([a-z0-9][\w\s-]{0,40}?)\s+budget\b/i', $prompt, $m)) {
+            $hint = trim($m[1]);
+            $hint = preg_replace('/\b(set|create|add|make|new|update|change|edit|delete|remove|my|the|a|an)\b/i', '', $hint);
+            $hint = trim(preg_replace('/\s{2,}/', ' ', $hint));
+            if ($hint !== '') return Str::title($hint);
+        }
+        if (preg_match('/\bbudget\s+(?:for|on|of)\s+([a-z0-9][\w\s-]{0,40}?)(?:\s+to|\s+of|\s+at|$)/i', $prompt, $m)) {
+            return Str::title(trim($m[1]));
+        }
+        return null;
+    }
+
+    private function extractTaskHint(string $prompt): string
+    {
+        $clean = preg_replace('/\b(delete|remove|drop|erase|mark|as|complete|finish|done|update|change|edit|reschedule|the|a|an|my|task|todo|meeting)\b/i', ' ', $prompt);
+        $clean = preg_replace('/\s{2,}/', ' ', $clean);
+        return trim($clean) ?: $prompt;
+    }
+
+    private function extractDueAt(string $prompt, string $promptLower): ?string
+    {
         $dueAt = null;
-        $titleClean = preg_replace('/^(?:schedule|add|create|set|make|remind me to|remind me|i want to|i need to)\s+(?:(?:a|an|the)\s+)?(?:task|event|meeting|appointment)?\s*(?:for|to|about)?\s*/i', '', $prompt);
-        $titleClean = trim($titleClean);
 
         if (preg_match('/(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)/i', $promptLower, $tMatches)) {
             $hour = (int) $tMatches[1];
@@ -266,7 +363,6 @@ Return 'unknown' intent if you cannot map the input to any of the above.";
             }
 
             $dueAt = $date->copy()->setHour($hour)->setMinute($minute)->setSecond(0)->toDateTimeString();
-            $titleClean = preg_replace('/\b(?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)\b/i', '', $titleClean);
         } elseif (Str::contains($promptLower, 'tomorrow')) {
             $dueAt = Carbon::tomorrow()->setHour(9)->setMinute(0)->toDateTimeString();
         } elseif (preg_match('/\b(?:next\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i', $promptLower, $dMatches)) {
@@ -275,25 +371,15 @@ Return 'unknown' intent if you cannot map the input to any of the above.";
             $dueAt = Carbon::parse($dMatches[1])->setHour(9)->setMinute(0)->toDateTimeString();
         }
 
-        $titleClean = preg_replace('/\b(today|tomorrow|next|at|by|before|after|this|coming)\b/i', '', $titleClean);
-        $titleClean = preg_replace('/\s{2,}/', ' ', $titleClean);
-        $titleClean = trim($titleClean);
-        $title = $titleClean ?: $prompt;
-
-        return [
-            'intent' => 'schedule_task',
-            'parameters' => [
-                'title' => Str::limit($title, 80),
-                'description' => $prompt,
-                'due_at' => $dueAt,
-                'priority' => $priority,
-            ]
-        ];
+        return $dueAt;
     }
 
     private function postProcess(array $parsed, int $userId): array
     {
-        if ($parsed['intent'] === 'schedule_task') {
+        $intent = $parsed['intent'] ?? 'unknown';
+        $action = $parsed['parameters']['action'] ?? null;
+
+        if ($intent === 'manage_task' && $action === 'create') {
             $dueAt = $parsed['parameters']['due_at'] ?? null;
             if ($dueAt) {
                 $dueCarbon = Carbon::parse($dueAt);
@@ -308,7 +394,7 @@ Return 'unknown' intent if you cannot map the input to any of the above.";
 
                 if ($conflicts->isNotEmpty()) {
                     $parsed['conflict'] = true;
-                    $parsed['conflicting_tasks'] = $conflicts->map(fn($t) => [
+                    $parsed['conflicting_tasks'] = $conflicts->map(fn ($t) => [
                         'id' => $t->id,
                         'title' => $t->title,
                         'due_at' => $t->due_at->toDateTimeString(),

@@ -35,6 +35,7 @@ class BudgetController extends Controller
     {
         return view('accounting.budgets.create', [
             'periods' => Budget::periods(),
+            'categories' => \App\Support\AccountingCategories::forBudgets(),
         ]);
     }
 
@@ -52,6 +53,7 @@ class BudgetController extends Controller
         return view('accounting.budgets.edit', [
             'budget' => $budget,
             'periods' => Budget::periods(),
+            'categories' => \App\Support\AccountingCategories::forBudgets(),
         ]);
     }
 

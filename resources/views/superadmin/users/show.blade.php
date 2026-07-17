@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex items-center gap-4">
-            <a href="{{ route('superadmin.users.index') }}" class="text-muted hover:text-white">&larr; Users</a>
+            <x-ui.back-link :href="route('superadmin.users.index')" label="Back to Users" class="!mb-0" />
             <h2 class="font-semibold text-xl leading-tight">{{ $user->name }}</h2>
         </div>
     </x-slot>

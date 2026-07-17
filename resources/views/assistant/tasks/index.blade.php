@@ -74,11 +74,19 @@
                             @dragstart="dragStart($event, task.id)" 
                             class="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] hover:border-[var(--pur)]/40 hover:shadow-md transition cursor-grab active:cursor-grabbing flex flex-col gap-2 relative group"
                         >
-                            <div class="flex items-start justify-between gap-2 pr-6">
+                            <div class="flex items-start justify-between gap-2 pr-14">
                                 <h5 class="font-bold text-xs text-[var(--text)] leading-snug" x-text="task.title"></h5>
-                                <a :href="'/assistant/tasks/' + task.id + '/edit'" class="p-1 rounded-lg text-[var(--text-secondary)] hover:text-[var(--pur)] hover:bg-[var(--pur)]/10 absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity" title="Edit task">
-                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                </a>
+                                <div class="absolute right-3 top-3 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <a :href="'/assistant/tasks/' + task.id + '/edit'" class="p-1 rounded-lg text-[var(--text-secondary)] hover:text-[var(--pur)] hover:bg-[var(--pur)]/10" title="Edit task">
+                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                    </a>
+                                    <form method="POST" :action="'/assistant/tasks/' + task.id" class="inline" @click.stop @dragstart.stop>
+                                        @csrf @method('DELETE')
+                                        <button type="submit" class="p-1 rounded-lg text-[var(--text-secondary)] hover:text-rose-500 hover:bg-rose-500/10" title="Delete task" data-confirm="Delete task?">
+                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                        </button>
+                                    </form>
+                                </div>
                             </div>
                             <p x-show="task.description" class="text-[10px] text-[var(--text-secondary)] font-medium leading-relaxed truncate" x-text="task.description"></p>
                             <div class="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-[var(--border)]/40">
@@ -118,11 +126,19 @@
                             @dragstart="dragStart($event, task.id)" 
                             class="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] hover:border-[var(--pur)]/40 hover:shadow-md transition cursor-grab active:cursor-grabbing flex flex-col gap-2 relative group"
                         >
-                            <div class="flex items-start justify-between gap-2 pr-6">
+                            <div class="flex items-start justify-between gap-2 pr-14">
                                 <h5 class="font-bold text-xs text-[var(--text)] leading-snug" x-text="task.title"></h5>
-                                <a :href="'/assistant/tasks/' + task.id + '/edit'" class="p-1 rounded-lg text-[var(--text-secondary)] hover:text-[var(--pur)] hover:bg-[var(--pur)]/10 absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity" title="Edit task">
-                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                </a>
+                                <div class="absolute right-3 top-3 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <a :href="'/assistant/tasks/' + task.id + '/edit'" class="p-1 rounded-lg text-[var(--text-secondary)] hover:text-[var(--pur)] hover:bg-[var(--pur)]/10" title="Edit task">
+                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                    </a>
+                                    <form method="POST" :action="'/assistant/tasks/' + task.id" class="inline" @click.stop @dragstart.stop>
+                                        @csrf @method('DELETE')
+                                        <button type="submit" class="p-1 rounded-lg text-[var(--text-secondary)] hover:text-rose-500 hover:bg-rose-500/10" title="Delete task" data-confirm="Delete task?">
+                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                        </button>
+                                    </form>
+                                </div>
                             </div>
                             <p x-show="task.description" class="text-[10px] text-[var(--text-secondary)] font-medium leading-relaxed truncate" x-text="task.description"></p>
                             <div class="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-[var(--border)]/40">
@@ -162,11 +178,19 @@
                             @dragstart="dragStart($event, task.id)" 
                             class="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] hover:border-[var(--pur)]/40 hover:shadow-md transition cursor-grab active:cursor-grabbing flex flex-col gap-2 relative group opacity-75 hover:opacity-100"
                         >
-                            <div class="flex items-start justify-between gap-2 pr-6">
+                            <div class="flex items-start justify-between gap-2 pr-14">
                                 <h5 class="font-bold text-xs text-[var(--text)] leading-snug line-through opacity-70" x-text="task.title"></h5>
-                                <a :href="'/assistant/tasks/' + task.id + '/edit'" class="p-1 rounded-lg text-[var(--text-secondary)] hover:text-[var(--pur)] hover:bg-[var(--pur)]/10 absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity" title="Edit task">
-                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                </a>
+                                <div class="absolute right-3 top-3 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <a :href="'/assistant/tasks/' + task.id + '/edit'" class="p-1 rounded-lg text-[var(--text-secondary)] hover:text-[var(--pur)] hover:bg-[var(--pur)]/10" title="Edit task">
+                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                    </a>
+                                    <form method="POST" :action="'/assistant/tasks/' + task.id" class="inline" @click.stop @dragstart.stop>
+                                        @csrf @method('DELETE')
+                                        <button type="submit" class="p-1 rounded-lg text-[var(--text-secondary)] hover:text-rose-500 hover:bg-rose-500/10" title="Delete task" data-confirm="Delete task?">
+                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                        </button>
+                                    </form>
+                                </div>
                             </div>
                             <p x-show="task.description" class="text-[10px] text-[var(--text-secondary)] font-medium leading-relaxed truncate line-through opacity-60" x-text="task.description"></p>
                             <div class="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-[var(--border)]/40">
@@ -201,11 +225,19 @@
                             @dragstart="dragStart($event, task.id)" 
                             class="p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)] hover:border-[var(--pur)]/40 hover:shadow-md transition cursor-grab active:cursor-grabbing flex flex-col gap-2 relative group opacity-60 hover:opacity-90"
                         >
-                            <div class="flex items-start justify-between gap-2 pr-6">
+                            <div class="flex items-start justify-between gap-2 pr-14">
                                 <h5 class="font-bold text-xs text-[var(--text)] leading-snug line-through opacity-60" x-text="task.title"></h5>
-                                <a :href="'/assistant/tasks/' + task.id + '/edit'" class="p-1 rounded-lg text-[var(--text-secondary)] hover:text-[var(--pur)] hover:bg-[var(--pur)]/10 absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity" title="Edit task">
-                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                </a>
+                                <div class="absolute right-3 top-3 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <a :href="'/assistant/tasks/' + task.id + '/edit'" class="p-1 rounded-lg text-[var(--text-secondary)] hover:text-[var(--pur)] hover:bg-[var(--pur)]/10" title="Edit task">
+                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                    </a>
+                                    <form method="POST" :action="'/assistant/tasks/' + task.id" class="inline" @click.stop @dragstart.stop>
+                                        @csrf @method('DELETE')
+                                        <button type="submit" class="p-1 rounded-lg text-[var(--text-secondary)] hover:text-rose-500 hover:bg-rose-500/10" title="Delete task" data-confirm="Delete task?">
+                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                        </button>
+                                    </form>
+                                </div>
                             </div>
                             <p x-show="task.description" class="text-[10px] text-[var(--text-secondary)] font-medium leading-relaxed truncate line-through opacity-50" x-text="task.description"></p>
                             <div class="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-[var(--border)]/40">

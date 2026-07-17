@@ -60,9 +60,11 @@
     </div>
 
     <div>
-        <x-input-label for="category" value="Category" />
-        <x-text-input id="category" class="mt-1" name="category" placeholder="e.g. Consulting Revenue, Rent Expense, Software Subscriptions" :value="old('category', $transaction?->category)" required />
-        <x-input-error :messages="$errors->get('category')" class="mt-1" />
+        <x-ui.category-select
+            :value="old('category', $transaction?->category)"
+            filter-by-type
+            type-field-id="type"
+        />
     </div>
 
     <div>

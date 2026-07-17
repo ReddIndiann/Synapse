@@ -45,6 +45,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/chat', [AssistantController::class, 'store'])->name('chat.store')->middleware('throttle:30,1');
         Route::post('/chat/clear', [AssistantController::class, 'clearChat'])->name('chat.clear');
         Route::post('/chat/resolve/{message}', [AssistantController::class, 'resolveConflict'])->name('chat.resolve');
+        Route::post('/chat/confirm/{message}', [AssistantController::class, 'resolveAction'])->name('chat.confirm');
         
         // Task alert and response endpoints
         Route::get('/tasks/upcoming-alerts', [TaskController::class, 'upcomingAlerts'])->name('tasks.upcoming-alerts');

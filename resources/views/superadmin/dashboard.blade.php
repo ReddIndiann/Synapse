@@ -40,17 +40,20 @@
                 <div class="space-y-2 text-sm">
                     <div class="flex justify-between">
                         <span class="text-muted">Active Provider</span>
-                        <span class="px-2 py-0.5 rounded text-xs font-medium
-                            @if($ai['provider'] === 'gemini') bg-purple-500/20 text-purple-300
-                            @elseif($ai['provider'] === 'local') bg-cyan-500/20 text-cyan-300
-                            @else bg-gray-500/20 text-gray-300 @endif">
+                        <span class="px-2 py-0.5 rounded text-xs font-medium bg-purple-500/20 text-purple-300">
                             {{ $ai['provider'] }}
                         </span>
                     </div>
+                    @if(!empty($ai['fallback_providers']))
+                        <div class="flex justify-between">
+                            <span class="text-muted">Fallbacks</span>
+                            <span class="text-xs">{{ implode(', ', $ai['fallback_providers']) }}</span>
+                        </div>
+                    @endif
                     <div class="flex justify-between">
-                        <span class="text-muted">Gemini</span>
-                        <span class="{{ $ai['gemini_configured'] ? 'text-emerald-400' : 'text-red-400' }}">
-                            {{ $ai['gemini_configured'] ? 'Configured' : 'Not configured' }}
+                        <span class="text-muted">Configured APIs</span>
+                        <span class="text-xs text-right max-w-[200px]">
+                            {{ count($ai['configured_providers']) ? implode(', ', $ai['configured_providers']) : 'None (using regex fallback)' }}
                         </span>
                     </div>
                     <div class="flex justify-between">

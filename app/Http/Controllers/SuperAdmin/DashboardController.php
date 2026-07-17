@@ -9,6 +9,7 @@ use App\Models\PublishJob;
 use App\Models\Task;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Services\Ai\AiProviderManager;
 use App\Services\LocalAiService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -16,7 +17,7 @@ use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    public function __invoke(LocalAiService $localAi): View
+    public function __invoke(LocalAiService $localAi, AiProviderManager $aiManager): View
     {
         $stats = [
             'users' => User::count(),
@@ -39,7 +40,15 @@ class DashboardController extends Controller
 
         $ai = [
             'provider' => config('ai.provider', 'regex'),
+            'fallback_providers' => config('ai.fallback_providers', []),
+            'configured_providers' => collect($aiManager->allProviderStatuses())
+                ->filter(fn ($p) => ($p['configured'] ?? false) && ($p['name'] ?? '') !== 'regex')
+                ->keys()
+                ->values()
+                ->all(),
             'gemini_configured' => !empty(config('ai.gemini.key')),
+            'openai_configured' => !empty(config('ai.openai.key')),
+            'anthropic_configured' => !empty(config('ai.anthropic.key')),
             'local_available' => $localAi->isAvailable(),
             'local_model' => config('ai.local.model'),
         ];

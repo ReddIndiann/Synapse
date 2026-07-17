@@ -1,5 +1,6 @@
 <x-ui.page title="AI Assistant" description="Natural-language workspace — Schedule tasks, log transactions, and queue platform distribution." maxWidth="5xl">
     <x-slot name="actions">
+        <x-ui.back-link :href="route('dashboard')" label="Back to Dashboard" class="!mb-0" />
         <form method="POST" action="{{ route('assistant.chat.clear') }}" data-confirm="Clear chat history?">
             @csrf
             <x-ui.button type="submit" variant="danger" size="sm">Clear Chat</x-ui.button>
@@ -64,6 +65,25 @@
                                                 <input type="hidden" name="action" value="cancel">
                                                 <x-ui.button type="submit" variant="danger" size="sm" class="!py-1.5 !px-3 !text-xs font-medium">
                                                     Cancel
+                                                </x-ui.button>
+                                            </form>
+                                        </div>
+                                    @endif
+
+                                    @if ($msg->metadata && isset($msg->metadata['type']) && in_array($msg->metadata['type'], ['confirm_delete_task', 'confirm_delete_budget'], true))
+                                        <div class="mt-4 pt-3 border-t border-[var(--border)] flex flex-wrap gap-2">
+                                            <form method="POST" action="{{ route('assistant.chat.confirm', $msg->id) }}">
+                                                @csrf
+                                                <input type="hidden" name="action" value="confirm">
+                                                <x-ui.button type="submit" variant="danger" size="sm" class="!py-1.5 !px-3 !text-xs font-medium">
+                                                    Confirm Delete
+                                                </x-ui.button>
+                                            </form>
+                                            <form method="POST" action="{{ route('assistant.chat.confirm', $msg->id) }}">
+                                                @csrf
+                                                <input type="hidden" name="action" value="cancel">
+                                                <x-ui.button type="submit" variant="secondary" size="sm" class="!py-1.5 !px-3 !text-xs font-medium">
+                                                    Keep It
                                                 </x-ui.button>
                                             </form>
                                         </div>

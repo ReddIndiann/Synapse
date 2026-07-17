@@ -1,4 +1,5 @@
 <x-ui.page title="Upload Media" maxWidth="3xl">
+    <x-ui.back-link :href="route('distribution.media.index')" label="Back to Media Library" />
     <x-ui.form-card title="File Details">
         <form method="POST" action="{{ route('distribution.media.store') }}" enctype="multipart/form-data" class="space-y-5">
             @csrf
