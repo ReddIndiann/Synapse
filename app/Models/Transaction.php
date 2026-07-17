@@ -12,6 +12,9 @@ class Transaction extends Model
 
     protected $fillable = [
         'user_id',
+        'publish_job_id',
+        'publish_campaign_id',
+        'media_asset_id',
         'type',
         'amount',
         'currency',
@@ -35,6 +38,21 @@ class Transaction extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function publishJob(): BelongsTo
+    {
+        return $this->belongsTo(PublishJob::class);
+    }
+
+    public function publishCampaign(): BelongsTo
+    {
+        return $this->belongsTo(PublishCampaign::class);
+    }
+
+    public function mediaAsset(): BelongsTo
+    {
+        return $this->belongsTo(MediaAsset::class);
     }
 
     public static function types(): array

@@ -16,14 +16,19 @@ class PublishJobFactory extends Factory
     {
         return [
             'user_id' => User::factory(),
+            'publish_campaign_id' => null,
             'media_asset_id' => MediaAsset::factory(),
             'distribution_channel_id' => DistributionChannel::factory(),
+            'user_platform_account_id' => null,
             'status' => fake()->randomElement(['pending', 'scheduled', 'published', 'failed']),
             'caption' => fake()->sentence(),
+            'platform_options' => [],
             'scheduled_at' => null,
             'published_at' => null,
             'published_url' => null,
+            'external_post_id' => null,
             'logs' => [],
+            'error_message' => null,
         ];
     }
 }

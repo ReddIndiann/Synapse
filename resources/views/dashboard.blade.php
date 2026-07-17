@@ -1,9 +1,14 @@
 <x-ui.page title="Dashboard" description="Your Synapse workspace at a glance.">
     <!-- Stat Cards Summary Row -->
-    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-8">
+    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
         <x-ui.stat-card label="Open Tasks" :value="$openTasks" hint="Intelligent active checklist" />
         <x-ui.stat-card label="Net Balance" :value="number_format($income - $expense, 2).' GHS'" hint="Double-entry ledger sum" />
         <x-ui.stat-card label="Media Assets" :value="$mediaCount" hint="Ready for platform distribution" />
+        @if ($marketingBudget)
+            <x-ui.stat-card label="Marketing Budget Left" :value="number_format($marketingBudget['remaining'], 2).' GHS'" :hint="'Spent '.number_format($marketingBudget['spent'], 2).' of '.number_format($marketingBudget['limit'], 2)" />
+        @else
+            <x-ui.stat-card label="Pending Publishes" :value="$pendingPublishes" hint="Queued distribution jobs" />
+        @endif
     </div>
 
     <!-- Core Workspaces Row -->

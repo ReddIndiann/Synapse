@@ -8,6 +8,7 @@ use App\Models\Budget;
 use App\Models\Transaction;
 use App\Notifications\BudgetBreachedNotification;
 use App\Services\AccountingLedgerService;
+use App\Services\BudgetService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -17,8 +18,10 @@ class TransactionController extends Controller
 {
     protected $ledgerService;
 
-    public function __construct(AccountingLedgerService $ledgerService)
-    {
+    public function __construct(
+        AccountingLedgerService $ledgerService,
+        private BudgetService $budgetService,
+    ) {
         $this->ledgerService = $ledgerService;
     }
 
@@ -117,19 +120,8 @@ class TransactionController extends Controller
 
         $occurredAt = Carbon::parse($transaction->occurred_at);
 
-        $totalSpent = Transaction::where('user_id', $transaction->user_id)
-            ->where('category', $transaction->category)
-            ->where('type', 'expense')
-            ->whereMonth('occurred_at', $occurredAt->month)
-            ->whereYear('occurred_at', $occurredAt->year)
-            ->sum('amount');
-
-        $level = match (true) {
-            $totalSpent > $budget->amount => 'exceeded',
-            $totalSpent >= $budget->amount * 0.9 => 'warning_90',
-            $totalSpent >= $budget->amount * 0.8 => 'warning_80',
-            default => null,
-        };
+        $totalSpent = $this->budgetService->spentForBudget($budget, $occurredAt);
+        $level = $this->budgetService->breachLevel($budget, $totalSpent);
 
         if (!$level) {
             return;

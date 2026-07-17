@@ -57,7 +57,8 @@ Guidelines for parameters based on intent:
 
 4. publish_media:
 - \"media_title\": string
-- \"channel\": \"youtube\" | \"spotify\" | \"audiomack\" | \"instagram\" | \"linkedin\" | \"facebook\" | \"website\"
+- \"channels\": array of \"youtube\" | \"spotify\" | \"audiomack\" | \"instagram\" | \"linkedin\" | \"facebook\" | \"website\" (min 1)
+- \"channel\": single channel string (legacy fallback if channels omitted)
 - \"caption\": string or null
 - \"scheduled_at\": string (\"YYYY-MM-DD HH:MM:SS\") or null
 

@@ -3,84 +3,146 @@
 namespace App\Http\Controllers\Distribution;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Distribution\PublishJobRequest;
+use App\Http\Requests\Distribution\PublishCampaignRequest;
 use App\Models\DistributionChannel;
 use App\Models\MediaAsset;
+use App\Models\PublishCampaign;
 use App\Models\PublishJob;
+use App\Models\UserPlatformAccount;
 use App\Jobs\ProcessPublishJob;
+use App\Services\Distribution\PublishCampaignService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
 class PublishController extends Controller
 {
+    public function __construct(private PublishCampaignService $campaignService) {}
+
     public function index(): View
     {
-        $jobs = PublishJob::query()
+        $campaigns = PublishCampaign::query()
             ->where('user_id', auth()->id())
-            ->with(['mediaAsset', 'distributionChannel'])
+            ->with(['mediaAsset', 'publishJobs.distributionChannel'])
             ->latest()
             ->paginate(10);
 
-        return view('distribution.publish.index', compact('jobs'));
+        return view('distribution.publish.index', compact('campaigns'));
     }
 
     public function create(): View
     {
+        $userId = auth()->id();
+        $channels = DistributionChannel::query()->where('is_active', true)->orderBy('name')->get();
+        $connectedAccounts = UserPlatformAccount::query()
+            ->where('user_id', $userId)
+            ->where('is_active', true)
+            ->get()
+            ->keyBy('distribution_channel_id');
+
+        $defaultCosts = [];
+        foreach ($channels as $channel) {
+            $defaultCosts[$channel->id] = $this->campaignService->defaultCostForChannel($userId, $channel);
+        }
+
         return view('distribution.publish.create', [
-            'assets' => MediaAsset::query()->where('user_id', auth()->id())->orderBy('title')->get(),
-            'channels' => DistributionChannel::query()->where('is_active', true)->orderBy('name')->get(),
+            'assets' => MediaAsset::query()->where('user_id', $userId)->orderBy('title')->get(),
+            'channels' => $channels,
+            'connectedAccounts' => $connectedAccounts,
+            'defaultCosts' => $defaultCosts,
+            'prefillMediaId' => request('media_asset_id'),
         ]);
     }
 
-    public function store(PublishJobRequest $request): RedirectResponse
+    public function store(PublishCampaignRequest $request): RedirectResponse
     {
         $asset = MediaAsset::query()->findOrFail($request->validated('media_asset_id'));
         $this->authorize('view', $asset);
 
-        $status = !empty($request->validated('scheduled_at')) ? 'scheduled' : 'pending';
+        $campaign = $this->campaignService->createCampaign(auth()->id(), $request->validated());
 
-        $job = PublishJob::create([
-            ...$request->validated(),
-            'user_id' => auth()->id(),
-            'status' => $status,
-        ]);
+        $isImmediate = empty($request->validated('scheduled_at'));
 
-        // Dispatch background queue worker if immediate
-        if ($status === 'pending') {
-            ProcessPublishJob::dispatch($job);
-            return redirect()->route('distribution.publish.monitor', $job)->with('status', 'Publish job started.');
+        if ($isImmediate) {
+            return redirect()
+                ->route('distribution.publish.campaign', $campaign)
+                ->with('status', 'Multi-platform publish campaign started.');
         }
 
-        return redirect()->route('distribution.publish.index')->with('status', 'Publish job scheduled.');
+        return redirect()
+            ->route('distribution.publish.index')
+            ->with('status', 'Publish campaign scheduled.');
     }
 
-    /**
-     * Real-time monitoring UI.
-     */
+    public function campaignMonitor(PublishCampaign $campaign): View
+    {
+        $this->authorize('view', $campaign);
+        $campaign->load(['mediaAsset', 'publishJobs.distributionChannel']);
+
+        $marketingBudget = app(\App\Services\BudgetService::class)->marketingBudgetSummary(auth()->id());
+
+        return view('distribution.publish.campaign-monitor', [
+            'campaign' => $campaign,
+            'marketingBudget' => $marketingBudget,
+        ]);
+    }
+
+    public function campaignStatusJson(PublishCampaign $campaign): JsonResponse
+    {
+        $this->authorize('view', $campaign);
+        $campaign->load(['publishJobs.distributionChannel']);
+
+        $jobs = $campaign->publishJobs->map(fn (PublishJob $job) => [
+            'id' => $job->id,
+            'channel' => $job->distributionChannel->name,
+            'status' => $job->status,
+            'published_url' => $job->published_url,
+            'progress' => $this->calculateProgress($job->status, $job->logs),
+            'logs' => $job->logs ?: [],
+        ]);
+
+        $published = $campaign->publishJobs->where('status', 'published')->count();
+        $total = $campaign->publishJobs->count();
+
+        return response()->json([
+            'campaign_status' => $campaign->status,
+            'progress_summary' => "{$published}/{$total}",
+            'jobs' => $jobs,
+        ]);
+    }
+
     public function monitor(PublishJob $publish): View
     {
         $this->authorize('view', $publish);
-        $publish->load(['mediaAsset', 'distributionChannel']);
-        
-        return view('distribution.publish.monitor', [
-            'job' => $publish,
-        ]);
+        $publish->load(['mediaAsset', 'distributionChannel', 'publishCampaign']);
+
+        return view('distribution.publish.monitor', ['job' => $publish]);
     }
 
-    /**
-     * JSON Endpoint for AJAX Polling.
-     */
     public function statusJson(PublishJob $publish): JsonResponse
     {
         $this->authorize('view', $publish);
-        
+
         return response()->json([
             'status' => $publish->status,
             'logs' => $publish->logs ?: [],
             'published_url' => $publish->published_url,
             'progress' => $this->calculateProgress($publish->status, $publish->logs),
         ]);
+    }
+
+    public function retry(PublishJob $publish): RedirectResponse
+    {
+        $this->authorize('update', $publish);
+
+        if ($publish->status !== 'failed') {
+            return back()->with('status', 'Only failed jobs can be retried.');
+        }
+
+        $publish->update(['status' => 'pending', 'error_message' => null, 'logs' => []]);
+        ProcessPublishJob::dispatch($publish);
+
+        return back()->with('status', 'Publish job queued for retry.');
     }
 
     public function destroy(PublishJob $publish): RedirectResponse
@@ -91,22 +153,29 @@ class PublishController extends Controller
         return redirect()->route('distribution.publish.index')->with('status', 'Publish job removed.');
     }
 
-    /**
-     * Helper to compute progress bar percentage.
-     */
+    public function destroyCampaign(PublishCampaign $campaign): RedirectResponse
+    {
+        $this->authorize('delete', $campaign);
+        $campaign->publishJobs()->delete();
+        $campaign->delete();
+
+        return redirect()->route('distribution.publish.index')->with('status', 'Campaign removed.');
+    }
+
     private function calculateProgress(string $status, ?array $logs): int
     {
-        if ($status === 'published') return 100;
-        if ($status === 'failed') return 100;
-        if ($status === 'pending') return 10;
-        
+        if ($status === 'published' || $status === 'failed') {
+            return 100;
+        }
+        if ($status === 'pending') {
+            return 10;
+        }
         if ($status === 'processing') {
-            if (!$logs) return 20;
+            if (!$logs) {
+                return 20;
+            }
             $count = count($logs);
-            if ($count <= 2) return 25;
-            if ($count <= 4) return 50;
-            if ($count <= 6) return 75;
-            return 90;
+            return min(90, 20 + ($count * 10));
         }
 
         return 0;

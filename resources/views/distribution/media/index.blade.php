@@ -83,8 +83,11 @@
 
                             <!-- Actions row -->
                             <div class="flex gap-2 w-full">
+                                <x-ui.button :href="route('distribution.publish.create', ['media_asset_id' => $asset->id])" variant="primary" size="sm" class="flex-1 !py-1.5 !text-[10px]">
+                                    Publish
+                                </x-ui.button>
                                 <x-ui.button :href="route('distribution.media.edit', $asset)" variant="secondary" size="sm" class="flex-1 !py-1.5 !text-[10px]">
-                                    Edit Asset
+                                    Edit
                                 </x-ui.button>
                                 <form method="POST" action="{{ route('distribution.media.destroy', $asset) }}" class="flex-1">
                                     @csrf @method('DELETE')

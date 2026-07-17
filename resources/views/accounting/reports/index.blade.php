@@ -66,6 +66,18 @@
                 </div>
             </x-ui.card>
         </div>
+
+        @if (isset($distributionEconomics) && $distributionEconomics->isNotEmpty())
+            <x-ui.card>
+                <h3 class="font-semibold text-slate-900 mb-4">Distribution Economics</h3>
+                @foreach ($distributionEconomics as $row)
+                    <div class="flex justify-between py-2 border-b border-slate-100 text-sm">
+                        <span>{{ $row['channel'] }} · {{ $row['jobs_published'] }} publishes</span>
+                        <span class="font-medium">{{ number_format($row['linked_spend'], 2) }} GHS linked spend</span>
+                    </div>
+                @endforeach
+            </x-ui.card>
+        @endif
     </div>
 
     <!-- Profit & Loss Tab Panel -->

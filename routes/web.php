@@ -10,6 +10,7 @@ use App\Http\Controllers\Assistant\TaskController;
 use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Distribution\MediaController;
+use App\Http\Controllers\Distribution\PlatformAccountController;
 use App\Http\Controllers\Distribution\PublishController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
@@ -64,11 +65,21 @@ Route::middleware('auth')->group(function () {
 
     Route::prefix('distribution')->name('distribution.')->group(function () {
         Route::resource('media', MediaController::class)->except('show');
+
+        Route::get('/accounts', [PlatformAccountController::class, 'index'])->name('accounts.index');
+        Route::get('/accounts/connect/{channel}', [PlatformAccountController::class, 'connect'])->name('accounts.connect');
+        Route::get('/accounts/callback/{platform}', [PlatformAccountController::class, 'callback'])->name('accounts.callback');
+        Route::delete('/accounts/{account}', [PlatformAccountController::class, 'disconnect'])->name('accounts.disconnect');
+
         Route::get('/publish', [PublishController::class, 'index'])->name('publish.index');
         Route::get('/publish/create', [PublishController::class, 'create'])->name('publish.create');
         Route::post('/publish', [PublishController::class, 'store'])->name('publish.store');
+        Route::get('/publish/campaign/{campaign}', [PublishController::class, 'campaignMonitor'])->name('publish.campaign');
+        Route::get('/publish/campaign/{campaign}/status', [PublishController::class, 'campaignStatusJson'])->name('publish.campaign.status');
+        Route::delete('/publish/campaign/{campaign}', [PublishController::class, 'destroyCampaign'])->name('publish.campaign.destroy');
         Route::get('/publish/{publish}/monitor', [PublishController::class, 'monitor'])->name('publish.monitor');
         Route::get('/publish/{publish}/status', [PublishController::class, 'statusJson'])->name('publish.status');
+        Route::post('/publish/{publish}/retry', [PublishController::class, 'retry'])->name('publish.retry');
         Route::delete('/publish/{publish}', [PublishController::class, 'destroy'])->name('publish.destroy');
     });
 });

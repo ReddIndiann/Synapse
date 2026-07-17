@@ -7,12 +7,13 @@ use App\Models\MediaAsset;
 use App\Models\PublishJob;
 use App\Models\Task;
 use App\Models\Transaction;
+use App\Services\BudgetService;
 use Illuminate\View\View;
 use Illuminate\Support\Carbon;
 
 class DashboardController extends Controller
 {
-    public function __invoke(): View
+    public function __invoke(BudgetService $budgetService): View
     {
         $userId = auth()->id();
 
@@ -76,17 +77,14 @@ class DashboardController extends Controller
         ];
         
         foreach ($budgets as $budget) {
-            $spent = Transaction::where('user_id', $userId)
-                ->where('category', $budget->category)
-                ->where('type', 'expense')
-                ->whereMonth('occurred_at', Carbon::now()->month)
-                ->whereYear('occurred_at', Carbon::now()->year)
-                ->sum('amount');
+            $spent = $budgetService->spentForBudget($budget);
                 
             $budgetChartData['categories'][] = $budget->category;
             $budgetChartData['limits'][] = (float) $budget->amount;
             $budgetChartData['actuals'][] = (float) $spent;
         }
+
+        $marketingBudget = $budgetService->marketingBudgetSummary($userId);
 
         // 3. Publication Queue Channels Mix
         $publishJobs = PublishJob::where('user_id', $userId)
@@ -116,6 +114,7 @@ class DashboardController extends Controller
             'cashFlowData',
             'budgetChartData',
             'publicationMixData',
+            'marketingBudget',
         ));
     }
 

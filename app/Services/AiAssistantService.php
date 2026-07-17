@@ -250,13 +250,16 @@ class AiAssistantService
 
         // --- publish_media ---
         if (Str::contains($promptLower, ['publish', 'upload', 'queue', 'post', 'distribute'])) {
-            $channel = 'youtube';
-            if (Str::contains($promptLower, 'spotify')) $channel = 'spotify';
-            elseif (Str::contains($promptLower, 'audiomack')) $channel = 'audiomack';
-            elseif (Str::contains($promptLower, 'instagram')) $channel = 'instagram';
-            elseif (Str::contains($promptLower, 'linkedin')) $channel = 'linkedin';
-            elseif (Str::contains($promptLower, 'facebook')) $channel = 'facebook';
-            elseif (Str::contains($promptLower, 'website')) $channel = 'website';
+            $allChannels = ['youtube', 'spotify', 'audiomack', 'instagram', 'linkedin', 'facebook', 'website'];
+            $channels = [];
+            foreach ($allChannels as $ch) {
+                if (Str::contains($promptLower, $ch)) {
+                    $channels[] = $ch;
+                }
+            }
+            if (empty($channels)) {
+                $channels = ['youtube'];
+            }
 
             $mediaTitle = 'Media Asset';
             if (preg_match('/(?:publish|upload|post)\s+["\']?([^"\']+)["\']?/i', $prompt, $mMatches)) {
@@ -267,7 +270,8 @@ class AiAssistantService
                 'intent' => 'publish_media',
                 'parameters' => [
                     'media_title' => $mediaTitle,
-                    'channel' => $channel,
+                    'channels' => $channels,
+                    'channel' => $channels[0],
                     'caption' => $prompt,
                     'scheduled_at' => null,
                 ],

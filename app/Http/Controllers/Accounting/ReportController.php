@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Accounting;
 
 use App\Http\Controllers\Controller;
 use App\Models\Budget;
+use App\Models\PublishJob;
 use App\Models\Transaction;
 use App\Services\AccountingLedgerService;
 use Illuminate\Support\Facades\DB;
@@ -42,6 +43,31 @@ class ReportController extends Controller
             ->orderByDesc('total')
             ->get();
 
+        $distributionEconomics = PublishJob::query()
+            ->where('user_id', $userId)
+            ->where('status', 'published')
+            ->with('distributionChannel')
+            ->get()
+            ->groupBy('distribution_channel_id')
+            ->map(function ($jobs) use ($userId) {
+                $channelName = $jobs->first()->distributionChannel?->name ?? 'Unknown';
+                $channelId = $jobs->first()->distribution_channel_id;
+                $linkedSpend = Transaction::query()
+                    ->where('user_id', $userId)
+                    ->where('type', 'expense')
+                    ->where('category', 'Marketing')
+                    ->whereNotNull('publish_job_id')
+                    ->whereHas('publishJob', fn ($q) => $q->where('distribution_channel_id', $channelId))
+                    ->sum('amount');
+
+                return [
+                    'channel' => $channelName,
+                    'jobs_published' => $jobs->count(),
+                    'linked_spend' => (float) $linkedSpend,
+                ];
+            })
+            ->values();
+
         return view('accounting.reports.index', compact(
             'income',
             'expense',
@@ -50,7 +76,8 @@ class ReportController extends Controller
             'budgets',
             'trialBalance',
             'profitAndLoss',
-            'balanceSheet'
+            'balanceSheet',
+            'distributionEconomics',
         ));
     }
 }

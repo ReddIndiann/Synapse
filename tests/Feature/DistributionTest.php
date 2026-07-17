@@ -4,10 +4,12 @@ namespace Tests\Feature;
 
 use App\Models\DistributionChannel;
 use App\Models\MediaAsset;
+use App\Models\PublishCampaign;
 use App\Models\PublishJob;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -106,33 +108,41 @@ class DistributionTest extends TestCase
         $this->assertDatabaseMissing('media_assets', ['id' => $asset->id]);
     }
 
-    public function test_publish_job_can_be_created(): void
+    public function test_multi_platform_campaign_can_be_created(): void
     {
+        Queue::fake();
+
         $asset = MediaAsset::factory()->create(['user_id' => $this->user->id]);
-        $channel = DistributionChannel::factory()->create(['is_active' => true]);
+        $website = DistributionChannel::factory()->create(['slug' => 'website', 'is_active' => true]);
+        $audiomack = DistributionChannel::factory()->create(['slug' => 'audiomack', 'is_active' => true]);
 
         $response = $this->actingAs($this->user)->post(route('distribution.publish.store'), [
             'media_asset_id' => $asset->id,
-            'distribution_channel_id' => $channel->id,
+            'distribution_channel_ids' => [$website->id, $audiomack->id],
             'caption' => 'Test publish',
         ]);
 
         $response->assertSessionHasNoErrors();
+
+        $campaign = PublishCampaign::first();
+        $this->assertNotNull($campaign);
+        $this->assertEquals(2, $campaign->publishJobs()->count());
+
         $this->assertDatabaseHas('publish_jobs', [
             'user_id' => $this->user->id,
-            'media_asset_id' => $asset->id,
-            'distribution_channel_id' => $channel->id,
+            'publish_campaign_id' => $campaign->id,
+            'distribution_channel_id' => $website->id,
         ]);
     }
 
-    public function test_publish_job_with_schedule(): void
+    public function test_publish_campaign_with_schedule(): void
     {
         $asset = MediaAsset::factory()->create(['user_id' => $this->user->id]);
-        $channel = DistributionChannel::factory()->create(['is_active' => true]);
+        $channel = DistributionChannel::factory()->create(['slug' => 'website', 'is_active' => true]);
 
         $response = $this->actingAs($this->user)->post(route('distribution.publish.store'), [
             'media_asset_id' => $asset->id,
-            'distribution_channel_id' => $channel->id,
+            'distribution_channel_ids' => [$channel->id],
             'scheduled_at' => now()->addDays(2)->toDateTimeString(),
         ]);
 
@@ -143,6 +153,23 @@ class DistributionTest extends TestCase
         ]);
     }
 
+    public function test_scheduled_dispatcher_dispatches_due_jobs(): void
+    {
+        Queue::fake();
+
+        $job = PublishJob::factory()->create([
+            'user_id' => $this->user->id,
+            'status' => 'scheduled',
+            'scheduled_at' => now()->subMinute(),
+        ]);
+
+        $this->artisan('publish:dispatch-scheduled')->assertSuccessful();
+
+        $job->refresh();
+        $this->assertEquals('pending', $job->status);
+        Queue::assertPushed(\App\Jobs\ProcessPublishJob::class);
+    }
+
     public function test_publish_job_status_json(): void
     {
         $job = PublishJob::factory()->create(['user_id' => $this->user->id]);
@@ -151,6 +178,20 @@ class DistributionTest extends TestCase
 
         $response->assertOk();
         $response->assertJsonStructure(['status', 'logs', 'published_url', 'progress']);
+    }
+
+    public function test_campaign_monitor_status_json(): void
+    {
+        $campaign = PublishCampaign::factory()->create(['user_id' => $this->user->id]);
+        PublishJob::factory()->create([
+            'user_id' => $this->user->id,
+            'publish_campaign_id' => $campaign->id,
+        ]);
+
+        $response = $this->actingAs($this->user)->get(route('distribution.publish.campaign.status', $campaign));
+
+        $response->assertOk();
+        $response->assertJsonStructure(['campaign_status', 'progress_summary', 'jobs']);
     }
 
     public function test_user_cannot_access_other_users_publish_job(): void

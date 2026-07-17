@@ -4,16 +4,15 @@ namespace App\Http\Controllers\Assistant;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Assistant\AssistantChatRequest;
-use App\Jobs\ProcessPublishJob;
 use App\Models\AssistantMessage;
 use App\Models\Budget;
-use App\Models\DistributionChannel;
 use App\Models\MediaAsset;
 use App\Models\PublishJob;
 use App\Models\Task;
 use App\Models\Transaction;
 use App\Services\AccountingLedgerService;
 use App\Services\AiAssistantService;
+use App\Services\Distribution\PublishCampaignService;
 use App\Services\EntityResolverService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -550,29 +549,31 @@ class AssistantController extends Controller
             }
         }
 
-        $channel = DistributionChannel::where('slug', $params['channel'])->first();
-        if (!$channel) {
-            $channel = DistributionChannel::first();
+        $channelSlugs = $params['channels'] ?? [];
+        if (empty($channelSlugs) && !empty($params['channel'])) {
+            $channelSlugs = [$params['channel']];
+        }
+        if (empty($channelSlugs)) {
+            $channelSlugs = ['youtube'];
         }
 
-        $publishJob = PublishJob::create([
-            'user_id' => $userId,
-            'media_asset_id' => $media->id,
-            'distribution_channel_id' => $channel->id,
-            'status' => !empty($params['scheduled_at']) ? 'scheduled' : 'pending',
-            'caption' => $params['caption'] ?? 'Published via AI assistant',
-            'scheduled_at' => !empty($params['scheduled_at']) ? Carbon::parse($params['scheduled_at']) : null,
-        ]);
+        $scheduledAt = !empty($params['scheduled_at']) ? Carbon::parse($params['scheduled_at']) : null;
 
-        if ($publishJob->status === 'pending') {
-            ProcessPublishJob::dispatch($publishJob);
-        }
+        $campaign = app(PublishCampaignService::class)->createFromAi(
+            $userId,
+            $media,
+            $channelSlugs,
+            $params['caption'] ?? 'Published via AI assistant',
+            $scheduledAt,
+        );
 
-        $schedStr = $publishJob->scheduled_at ? " scheduled for " . $publishJob->scheduled_at->format('M j, Y \a\t h:i A') : " immediate dispatch";
+        $channelNames = $campaign->publishJobs->map(fn ($j) => $j->distributionChannel->name)->join(', ');
+        $schedStr = $scheduledAt ? ' scheduled for ' . $scheduledAt->format('M j, Y \a\t h:i A') : ' immediate dispatch';
+
         AssistantMessage::create([
             'user_id' => $userId,
             'role' => 'assistant',
-            'content' => "Media publishing queued: Uploading '{$media->title}' to {$channel->name} ({$schedStr}). You can monitor the progress on the Publish Queue page.",
+            'content' => "Multi-platform publishing queued: Uploading '{$media->title}' to {$channelNames} ({$schedStr}). Monitor progress on the Publish Queue page.",
         ]);
     }
 
