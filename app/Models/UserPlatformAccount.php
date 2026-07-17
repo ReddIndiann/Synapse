@@ -62,4 +62,46 @@ class UserPlatformAccount extends Model
 
         return $this->token_expires_at->isPast();
     }
+
+    public function tokenStatusLabel(): string
+    {
+        if (!$this->token_expires_at) {
+            return 'Active';
+        }
+
+        return $this->isTokenExpired() ? 'Expired' : 'Active';
+    }
+
+    /**
+     * @return array<int, array{label: string, value: string}>
+     */
+    public function displayDetails(): array
+    {
+        $details = [
+            ['label' => 'Account name', 'value' => $this->account_name ?: '—'],
+        ];
+
+        if ($this->account_handle) {
+            $details[] = ['label' => 'Handle', 'value' => $this->account_handle];
+        }
+
+        if ($this->external_account_id) {
+            $details[] = ['label' => 'Platform ID', 'value' => $this->external_account_id];
+        }
+
+        if ($this->last_synced_at) {
+            $details[] = ['label' => 'Last synced', 'value' => $this->last_synced_at->format('M j, Y g:i A')];
+        }
+
+        if ($this->token_expires_at) {
+            $details[] = [
+                'label' => 'Token expires',
+                'value' => $this->token_expires_at->format('M j, Y g:i A') . ' (' . $this->token_expires_at->diffForHumans() . ')',
+            ];
+        }
+
+        $details[] = ['label' => 'Token status', 'value' => $this->tokenStatusLabel()];
+
+        return $details;
+    }
 }

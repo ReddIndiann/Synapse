@@ -24,10 +24,20 @@ class PlatformAccountController extends Controller
             ->get()
             ->keyBy('distribution_channel_id');
 
-        $channelMeta = $channels->mapWithKeys(function (DistributionChannel $channel) {
+        $channelMeta = $channels->mapWithKeys(function (DistributionChannel $channel) use ($accounts) {
+            $account = $accounts->get($channel->id);
+            $slug = strtolower($channel->slug);
+
             return [$channel->id => [
                 'requires_oauth' => $this->oauthService->requiresOAuth($channel),
                 'is_configured' => $this->oauthService->isConfigured($channel),
+                'action' => $this->oauthService->cardAction($channel, $account),
+                'profile_url' => ($account && $account->is_active)
+                    ? $this->oauthService->profileUrl($account)
+                    : null,
+                'login_url' => $this->oauthService->platformUrl($slug, 'login'),
+                'signup_url' => $this->oauthService->platformUrl($slug, 'signup'),
+                'developer_url' => $this->oauthService->platformUrl($slug, 'developer'),
             ]];
         });
 

@@ -185,6 +185,83 @@ class PlatformOAuthService
         return !empty($config['client_id']) && !empty($config['client_secret']);
     }
 
+    /**
+     * Resolve the primary click action for a platform card.
+     *
+     * @return array{type: 'connect'|'external', url: string, label: string, external: bool}
+     */
+    public function cardAction(DistributionChannel $channel, ?UserPlatformAccount $account): array
+    {
+        $slug = strtolower($channel->slug);
+        $name = $channel->name;
+
+        if ($account && $account->is_active) {
+            return [
+                'type' => 'external',
+                'url' => $this->profileUrl($account) ?? $this->platformUrl($slug, 'home') ?? '#',
+                'label' => "Open on {$name}",
+                'external' => true,
+            ];
+        }
+
+        if ($this->requiresOAuth($channel) && $this->isConfigured($channel)) {
+            return [
+                'type' => 'connect',
+                'url' => route('distribution.accounts.connect', $channel),
+                'label' => "Connect {$name}",
+                'external' => false,
+            ];
+        }
+
+        $loginUrl = $this->platformUrl($slug, 'login') ?? $this->platformUrl($slug, 'home');
+
+        if ($this->requiresOAuth($channel) && !$this->isConfigured($channel)) {
+            return [
+                'type' => 'external',
+                'url' => $loginUrl ?? $this->platformUrl($slug, 'developer') ?? '#',
+                'label' => "Sign in on {$name}",
+                'external' => true,
+            ];
+        }
+
+        return [
+            'type' => 'external',
+            'url' => $loginUrl ?? $this->platformUrl($slug, 'home') ?? '#',
+            'label' => "Visit {$name}",
+            'external' => true,
+        ];
+    }
+
+    public function platformUrl(string $slug, string $key): ?string
+    {
+        $url = config("distribution.platform_urls.{$slug}.{$key}");
+
+        return is_string($url) && $url !== '' ? $url : null;
+    }
+
+    public function profileUrl(UserPlatformAccount $account): ?string
+    {
+        $slug = strtolower($account->distributionChannel->slug);
+        $handle = $account->account_handle;
+        $id = $account->external_account_id;
+
+        return match ($slug) {
+            'youtube' => $handle
+                ? 'https://www.youtube.com/' . ltrim($handle, '@')
+                : ($id ? "https://www.youtube.com/channel/{$id}" : $this->platformUrl('youtube', 'home')),
+            'spotify' => $id ? "https://open.spotify.com/user/{$id}" : $this->platformUrl('spotify', 'home'),
+            'linkedin' => $id ? "https://www.linkedin.com/in/{$id}" : $this->platformUrl('linkedin', 'home'),
+            'facebook' => $id ? "https://www.facebook.com/{$id}" : $this->platformUrl('facebook', 'home'),
+            'instagram' => $handle
+                ? 'https://www.instagram.com/' . ltrim($handle, '@') . '/'
+                : $this->platformUrl('instagram', 'home'),
+            'audiomack' => $handle
+                ? "https://audiomack.com/{$handle}"
+                : $this->platformUrl('audiomack', 'home'),
+            default => $this->platformUrl($slug, 'home'),
+        };
+    }
+
     private function redirectUri(string $slug): string
     {
         $path = config("distribution.oauth.{$slug}.redirect", "/distribution/accounts/callback/{$slug}");

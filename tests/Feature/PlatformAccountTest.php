@@ -77,4 +77,54 @@ class PlatformAccountTest extends TestCase
         $account->refresh();
         $this->assertFalse($account->is_active);
     }
+
+    public function test_platform_card_action_connects_when_oauth_configured(): void
+    {
+        config([
+            'distribution.oauth.youtube.client_id' => 'test-client',
+            'distribution.oauth.youtube.client_secret' => 'test-secret',
+        ]);
+
+        $channel = DistributionChannel::factory()->create(['slug' => 'youtube', 'is_active' => true]);
+        $action = app(PlatformOAuthService::class)->cardAction($channel, null);
+
+        $this->assertSame('connect', $action['type']);
+        $this->assertStringContainsString('accounts/connect', $action['url']);
+    }
+
+    public function test_platform_card_action_external_when_oauth_not_configured(): void
+    {
+        $channel = DistributionChannel::factory()->create(['slug' => 'facebook', 'is_active' => true]);
+        $action = app(PlatformOAuthService::class)->cardAction($channel, null);
+
+        $this->assertSame('external', $action['type']);
+        $this->assertTrue($action['external']);
+        $this->assertStringStartsWith('https://', $action['url']);
+    }
+
+    public function test_connected_account_details_are_displayed_on_cards(): void
+    {
+        $user = User::factory()->create();
+        $channel = DistributionChannel::factory()->create(['name' => 'YouTube', 'slug' => 'youtube', 'is_active' => true]);
+        UserPlatformAccount::factory()->create([
+            'user_id' => $user->id,
+            'distribution_channel_id' => $channel->id,
+            'account_name' => 'My YouTube Channel',
+            'account_handle' => '@mychannel',
+            'external_account_id' => 'UC123456',
+            'is_active' => true,
+            'last_synced_at' => now(),
+            'token_expires_at' => now()->addDay(),
+        ]);
+
+        $response = $this->actingAs($user)->get(route('distribution.accounts.index'));
+
+        $response->assertOk();
+        $response->assertSee('My YouTube Channel');
+        $response->assertSee('@mychannel');
+        $response->assertSee('UC123456');
+        $response->assertSee('Account details');
+        $response->assertSee('Disconnect');
+        $response->assertSee('View profile');
+    }
 }
